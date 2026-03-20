@@ -116,10 +116,31 @@ router.post('/', (req, res) => {
     }
 });
 
-// PUT close position (sell shares)
+// PUT update/close/reopen position (supports partial sells and reopen)
 router.put('/:id', (req, res) => {
     try {
-        const { soldDate, salePrice, soldViaTradeId } = req.body;
+        const { soldDate, salePrice, soldViaTradeId, reopen } = req.body;
+
+        const position = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
+        if (!position) {
+            return apiResponse.error(res, 'Position not found', 404);
+        }
+
+        // Reopen a closed position: clear sold fields
+        if (reopen) {
+            if (!position.soldDate) {
+                return apiResponse.error(res, 'Position is already open', 400);
+            }
+
+            db.prepare(`
+                UPDATE positions
+                SET soldDate = NULL, salePrice = NULL, soldViaTradeId = NULL, capitalGainLoss = NULL, updatedAt = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).run(req.params.id);
+
+            const reopened = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
+            return apiResponse.success(res, positionToApi(reopened));
+        }
 
         // Validate input
         const validationErrors = validatePosition(req.body, true);
@@ -127,12 +148,49 @@ router.put('/:id', (req, res) => {
             return apiResponse.error(res, 'Validation failed', 400, validationErrors);
         }
 
-        const position = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
-        if (!position) {
-            return apiResponse.error(res, 'Position not found', 404);
+        const sharesToSell = req.body.sharesToSell !== undefined ? Number(req.body.sharesToSell) : null;
+
+        // Partial sell: split the lot
+        if (soldDate && salePrice !== undefined && sharesToSell && sharesToSell < position.shares) {
+            if (sharesToSell < 1 || !Number.isInteger(sharesToSell)) {
+                return apiResponse.error(res, 'sharesToSell must be a positive integer', 400);
+            }
+
+            const costBasisDollars = toDollars(position.costBasis);
+            const capitalGainLoss = (salePrice - costBasisDollars) * sharesToSell;
+
+            const partialSellTx = db.transaction(() => {
+                // Reduce shares on original position
+                db.prepare(`
+                    UPDATE positions SET shares = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?
+                `).run(position.shares - sharesToSell, position.id);
+
+                // Create new closed position for the sold portion
+                const result = db.prepare(`
+                    INSERT INTO positions (ticker, shares, costBasis, acquiredDate, acquiredFromTradeId, accountId, soldDate, salePrice, soldViaTradeId, capitalGainLoss)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).run(
+                    position.ticker,
+                    sharesToSell,
+                    position.costBasis,
+                    position.acquiredDate,
+                    position.acquiredFromTradeId,
+                    position.accountId,
+                    soldDate,
+                    toCents(salePrice),
+                    soldViaTradeId || null,
+                    toCents(capitalGainLoss)
+                );
+
+                return result.lastInsertRowid;
+            });
+
+            const soldId = partialSellTx();
+            const soldPosition = db.prepare('SELECT * FROM positions WHERE id = ?').get(soldId);
+            return apiResponse.success(res, positionToApi(soldPosition));
         }
 
-        // Calculate capital gain/loss (salePrice is dollars from frontend, costBasis is cents in DB)
+        // Full sell: update in place
         const costBasisDollars = toDollars(position.costBasis);
         const capitalGainLoss = (salePrice - costBasisDollars) * position.shares;
 

@@ -163,6 +163,36 @@ export const fundTransactionsApi = {
     }
 };
 
+// Positions API
+export const positionsApi = {
+    getAll: async (params = {}) => {
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                searchParams.append(key, value);
+            }
+        });
+        const query = searchParams.toString();
+        return request(`/positions${query ? `?${query}` : ''}`);
+    },
+    getSummary: async (params = {}) => {
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                searchParams.append(key, value);
+            }
+        });
+        const query = searchParams.toString();
+        return request(`/positions/summary${query ? `?${query}` : ''}`);
+    },
+    update: async (id, data) => {
+        return request(`/positions/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+};
+
 // Stocks API
 export const stocksApi = {
     getAll: async (params = {}) => {

@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, RefreshCw, DollarSign, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { positionsApi } from '../../services/api';
+import { PositionSellModal } from './PositionSellModal';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-export const PositionsTable = ({ showToast, accountId }) => {
+export const PositionsTable = ({ showToast, accountId, onPositionSold }) => {
     const [positions, setPositions] = useState([]);
     const [summary, setSummary] = useState(null);
     const [prices, setPrices] = useState({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState('open');
+    const [sellingPosition, setSellingPosition] = useState(null);
 
     const fetchPositions = async () => {
         try {
-            const acctParam = accountId ? `accountId=${accountId}&` : '';
-            const statusParam = filter !== 'all' ? `status=${filter}` : '';
-            const query = [acctParam, statusParam].filter(Boolean).join('&');
-            const [posRes, summaryRes] = await Promise.all([
-                fetch(`${API_URL}/api/positions${query ? `?${query}` : ''}`),
-                fetch(`${API_URL}/api/positions/summary${accountId ? `?accountId=${accountId}` : ''}`)
-            ]);
+            const params = {};
+            if (accountId) params.accountId = accountId;
+            if (filter !== 'all') params.status = filter;
 
-            const posData = await posRes.json();
-            const summaryData = await summaryRes.json();
+            const [posData, summaryData] = await Promise.all([
+                positionsApi.getAll(params),
+                positionsApi.getSummary(accountId ? { accountId } : {})
+            ]);
 
             if (posData.success) setPositions(posData.data);
             if (summaryData.success) setSummary(summaryData.data);
@@ -66,6 +67,31 @@ export const PositionsTable = ({ showToast, accountId }) => {
             fetchPrices();
         }
     }, [positions.length]);
+
+    const handleSell = async (data) => {
+        try {
+            await positionsApi.update(sellingPosition.id, data);
+            setSellingPosition(null);
+            showToast(`Sold ${sellingPosition.ticker} shares`, 'success');
+            fetchPositions();
+            if (onPositionSold) onPositionSold();
+        } catch (error) {
+            console.error('Error selling position:', error);
+            showToast('Failed to sell position', 'error');
+        }
+    };
+
+    const handleReopen = async (position) => {
+        try {
+            await positionsApi.update(position.id, { reopen: true });
+            showToast(`Reopened ${position.ticker} position`, 'success');
+            fetchPositions();
+            if (onPositionSold) onPositionSold();
+        } catch (error) {
+            console.error('Error reopening position:', error);
+            showToast('Failed to reopen position', 'error');
+        }
+    };
 
     const totalUnrealizedGL = positions
         .filter(p => !p.soldDate)
@@ -151,6 +177,7 @@ export const PositionsTable = ({ showToast, accountId }) => {
                                 <th className="text-right p-3 text-slate-500 dark:text-slate-400 font-medium">Current</th>
                                 <th className="text-right p-3 text-slate-500 dark:text-slate-400 font-medium">P/L</th>
                                 <th className="text-center p-3 text-slate-500 dark:text-slate-400 font-medium">Status</th>
+                                <th className="text-center p-3 text-slate-500 dark:text-slate-400 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -198,6 +225,25 @@ export const PositionsTable = ({ showToast, accountId }) => {
                                                 {position.soldDate ? 'Closed' : 'Open'}
                                             </span>
                                         </td>
+                                        <td className="p-3 text-center">
+                                            {!position.soldDate ? (
+                                                <button
+                                                    onClick={() => setSellingPosition(position)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
+                                                >
+                                                    <DollarSign className="w-3 h-3" />
+                                                    Sell
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleReopen(position)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
+                                                >
+                                                    <RotateCcw className="w-3 h-3" />
+                                                    Reopen
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -205,6 +251,14 @@ export const PositionsTable = ({ showToast, accountId }) => {
                     </table>
                 </div>
             )}
+
+            {/* Sell Modal */}
+            <PositionSellModal
+                isOpen={!!sellingPosition}
+                onClose={() => setSellingPosition(null)}
+                onSave={handleSell}
+                position={sellingPosition}
+            />
         </div>
     );
 };
