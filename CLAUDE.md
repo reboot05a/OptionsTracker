@@ -4,7 +4,7 @@
 
 Wheel Strategy Tracker for Cash Secured Puts (CSPs) and Covered Calls (CCs) with multi-account support and portfolio management. Self-hosted, local-first app with SQLite storage. Only external dependency is optional live prices via Yahoo Finance.
 
-**Current Version:** 0.15.0
+**Current Version:** 0.16.0
 **Docker:** `yomikoye/optionable:latest`
 
 ---

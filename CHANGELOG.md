@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.16.0
+
+### New Features
+- **Manual position sell** — Sell stock positions (from CSP assignments) directly from the Stock Positions table with a dedicated Sell modal
+- **Partial position sell** — Sell any number of shares from an assigned position (splits into open remainder + closed sold record)
+- **Reopen closed positions** — Undo a position sell with the Reopen button on closed positions (clears sold fields, restores to Open)
+
+### Improvements
+- **Positions API service layer** — Added `positionsApi` to the frontend API service for consistent data fetching
+- **Dashboard refresh on sell/reopen** — Stock Gains, Total P/L, and Portfolio stats update immediately after position changes
+- **PositionsTable uses API service** — Replaced raw `fetch()` calls with `positionsApi` for positions data
+
 ## v0.15.0
 
 ### New Features

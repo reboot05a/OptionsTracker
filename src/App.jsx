@@ -256,6 +256,7 @@ export default function App() {
                         <PositionsTable
                             showToast={showToast}
                             accountId={selectedAccountId}
+                            onPositionSold={refreshAll}
                         />
 
                         {/* Summary Cards */}
