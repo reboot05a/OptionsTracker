@@ -1,7 +1,7 @@
 // Date formatters
 export const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
         month: 'numeric',
         day: 'numeric',
         year: 'numeric'
@@ -10,7 +10,7 @@ export const formatDate = (dateStr) => {
 
 export const formatDateShort = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric'
     });
