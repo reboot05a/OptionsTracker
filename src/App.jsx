@@ -31,6 +31,7 @@ import {
     PortfolioView
 } from './components';
 
+import { BuyWriteView } from './components/positions/BuyWriteView';
 import { API_URL } from './utils/constants';
 
 // --- Main Component ---
@@ -93,8 +94,8 @@ export default function App() {
     const [showSettings, setShowSettings] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
 
-    // Tab state for portfolio mode
-    const [activeTab, setActiveTab] = useState('options');
+    // Tab state — default to positions view
+    const [activeTab, setActiveTab] = useState('positions');
     const [buyStockTrigger, setBuyStockTrigger] = useState(0);
 
     // App settings
@@ -119,10 +120,9 @@ export default function App() {
         fetchSettings();
     }, []);
 
-    const portfolioModeEnabled = appSettings.portfolio_mode_enabled === 'true';
     const paginationEnabled = appSettings.pagination_enabled !== 'false';
     const tradesPerPage = paginationEnabled ? (parseInt(appSettings.trades_per_page) || 5) : null;
-    const isPortfolioTab = portfolioModeEnabled && activeTab === 'portfolio';
+    const isPortfolioTab = activeTab === 'portfolio';
 
     // Reset to page 1 when tradesPerPage changes
     useEffect(() => {
@@ -212,18 +212,13 @@ export default function App() {
                     onAccountChange={setSelectedAccountId}
                 />
 
-                {/* Tab Bar (only when portfolio mode enabled) */}
-                {portfolioModeEnabled && (
-                    <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-                )}
+                {/* Tab Bar — always visible */}
+                <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-                {/* Options View */}
-                {(!portfolioModeEnabled || activeTab === 'options') && (
+                {/* ── Options View ── */}
+                {activeTab === 'options' && (
                     <>
-                        {/* Dashboard Grid */}
                         <Dashboard stats={stats} />
-
-                        {/* P/L Chart */}
                         <PnLChart
                             chartData={chartData}
                             chartPeriod={chartPeriod}
@@ -231,8 +226,6 @@ export default function App() {
                             totalPnL={stats.totalPnL}
                             darkMode={darkMode}
                         />
-
-                        {/* Trade Table */}
                         <TradeTable
                             trades={trades}
                             filteredAndSortedTrades={filteredAndSortedTrades}
@@ -251,21 +244,30 @@ export default function App() {
                             confirmExpireEnabled={appSettings.confirm_expire_enabled !== 'false'}
                             livePricesEnabled={appSettings.live_prices_enabled === 'true'}
                         />
-
-                        {/* Stock Positions (from assignments) */}
                         <PositionsTable
                             showToast={showToast}
                             accountId={selectedAccountId}
                             onPositionSold={refreshAll}
                         />
-
-                        {/* Summary Cards */}
                         <SummaryCards stats={stats} />
                     </>
                 )}
 
-                {/* Portfolio View */}
-                {portfolioModeEnabled && activeTab === 'portfolio' && (
+                {/* ── Positions View (Buy-Write Dashboard) ── */}
+                {activeTab === 'positions' && (
+                    <BuyWriteView
+                        accountId={selectedAccountId}
+                        livePricesEnabled={appSettings.live_prices_enabled === 'true'}
+                        onRoll={tradeForm.rollTrade}
+                        onEdit={tradeForm.openModal}
+                        onExpire={tradeForm.quickCloseTrade}
+                        onNewTrade={tradeForm.openModal}
+                        showToast={showToast}
+                    />
+                )}
+
+                {/* ── Portfolio View ── */}
+                {activeTab === 'portfolio' && (
                     <PortfolioView
                         portfolioStats={portfolio.portfolioStats}
                         monthlyData={portfolio.monthlyData}
