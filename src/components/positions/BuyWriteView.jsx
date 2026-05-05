@@ -347,9 +347,16 @@ export const BuyWriteView = ({
                                     >
                                         {/* Ticker */}
                                         <td className="px-3 py-3 font-bold text-slate-800 dark:text-white text-sm tracking-wide">
-                                            {pos.ticker}
-                                            {pos.status === 'UNCOVERED' && (
-                                                <AlertTriangle className="inline w-3.5 h-3.5 ml-1 text-amber-500" />
+                                            <div className="flex items-center gap-1">
+                                                {pos.ticker}
+                                                {pos.status === 'UNCOVERED' && (
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                                )}
+                                            </div>
+                                            {pos.cc?.notes && (
+                                                <div className="text-xs font-normal text-slate-400 dark:text-slate-500 mt-0.5 truncate max-w-[120px]">
+                                                    {pos.cc.notes.split(/\r?\n/)[0].trim()}
+                                                </div>
                                             )}
                                         </td>
 
