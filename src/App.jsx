@@ -257,6 +257,7 @@ export default function App() {
                 {activeTab === 'positions' && (
                     <BuyWriteView
                         accountId={selectedAccountId}
+                        accountValue={accounts.find(a => a.id === selectedAccountId)?.accountValue || 0}
                         livePricesEnabled={appSettings.live_prices_enabled === 'true'}
                         onRoll={tradeForm.rollTrade}
                         onEdit={tradeForm.openModal}

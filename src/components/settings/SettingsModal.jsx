@@ -14,6 +14,8 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
     const [editingAccountName, setEditingAccountName] = useState('');
     const [newAccountCommission, setNewAccountCommission] = useState('');
     const [editingAccountCommission, setEditingAccountCommission] = useState('');
+    const [newAccountValue, setNewAccountValue] = useState('');
+    const [editingAccountValue, setEditingAccountValue] = useState('');
 
     useEffect(() => {
         fetchSettings();
@@ -59,9 +61,11 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
         if (!newAccountName.trim()) return;
         try {
             const commission = newAccountCommission ? Number(newAccountCommission) : 0;
-            await onCreateAccount(newAccountName.trim(), commission);
+            const accountValue = newAccountValue ? Number(newAccountValue) : 0;
+            await onCreateAccount(newAccountName.trim(), commission, accountValue);
             setNewAccountName('');
             setNewAccountCommission('');
+            setNewAccountValue('');
             showToast?.('Account created', 'success');
         } catch (err) {
             showToast?.('Failed to create account', 'error');
@@ -72,10 +76,12 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
         if (!editingAccountName.trim()) return;
         try {
             const commission = editingAccountCommission !== '' ? Number(editingAccountCommission) : undefined;
-            await onRenameAccount(id, editingAccountName.trim(), commission);
+            const accountValue = editingAccountValue !== '' ? Number(editingAccountValue) : undefined;
+            await onRenameAccount(id, editingAccountName.trim(), commission, accountValue);
             setEditingAccountId(null);
             setEditingAccountName('');
             setEditingAccountCommission('');
+            setEditingAccountValue('');
             showToast?.('Account updated', 'success');
         } catch (err) {
             showToast?.('Failed to update account', 'error');
@@ -417,6 +423,19 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
                                                     placeholder="0.00"
                                                 />
                                             </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Account value ($)</span>
+                                                <input
+                                                    type="number"
+                                                    step="1"
+                                                    min="0"
+                                                    value={editingAccountValue}
+                                                    onChange={(e) => setEditingAccountValue(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleRenameAccount(account.id)}
+                                                    className="w-28 px-2 py-1 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    placeholder="e.g. 25000"
+                                                />
+                                            </div>
                                         </div>
                                     ) : (
                                         <>
@@ -427,9 +446,14 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
                                                         ${account.commissionPerContract}/contract
                                                     </span>
                                                 )}
+                                                {account.accountValue > 0 && (
+                                                    <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                                                        · ${account.accountValue.toLocaleString()}
+                                                    </span>
+                                                )}
                                             </div>
                                             <button
-                                                onClick={() => { setEditingAccountId(account.id); setEditingAccountName(account.name); setEditingAccountCommission(account.commissionPerContract || ''); }}
+                                                onClick={() => { setEditingAccountId(account.id); setEditingAccountName(account.name); setEditingAccountCommission(account.commissionPerContract || ''); setEditingAccountValue(account.accountValue || ''); }}
                                                 className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
                                                 title="Edit"
                                             >
@@ -478,6 +502,19 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
                                         onKeyDown={(e) => e.key === 'Enter' && handleAddAccount()}
                                         placeholder="e.g. 0.66"
                                         className="w-24 px-2 py-1 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Account value ($)</span>
+                                    <input
+                                        type="number"
+                                        step="1"
+                                        min="0"
+                                        value={newAccountValue}
+                                        onChange={(e) => setNewAccountValue(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleAddAccount()}
+                                        placeholder="e.g. 25000"
+                                        className="w-28 px-2 py-1 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
                             </div>

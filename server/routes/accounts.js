@@ -6,11 +6,14 @@ import { validateAccount } from '../utils/validation.js';
 
 const router = Router();
 
+// Helper: merge accountValue (stored as plain dollars) into the accountToApi output
+const mapAccount = (row) => ({ ...accountToApi(row), accountValue: row.accountValue || 0 });
+
 // GET all accounts
 router.get('/', (req, res) => {
     try {
         const accounts = db.prepare('SELECT * FROM accounts ORDER BY id ASC').all();
-        apiResponse.success(res, accounts.map(accountToApi));
+        apiResponse.success(res, accounts.map(mapAccount));
     } catch (error) {
         console.error('Error fetching accounts:', error);
         apiResponse.error(res, 'Failed to fetch accounts');
@@ -24,7 +27,7 @@ router.get('/:id', (req, res) => {
         if (!account) {
             return apiResponse.error(res, 'Account not found', 404);
         }
-        apiResponse.success(res, accountToApi(account));
+        apiResponse.success(res, mapAccount(account));
     } catch (error) {
         console.error('Error fetching account:', error);
         apiResponse.error(res, 'Failed to fetch account');
@@ -40,9 +43,10 @@ router.post('/', (req, res) => {
         }
 
         const commissionCents = toCents(req.body.commissionPerContract) || 0;
-        const result = db.prepare('INSERT INTO accounts (name, commissionPerContract) VALUES (?, ?)').run(req.body.name.trim(), commissionCents);
+        const accountValue = req.body.accountValue != null ? Number(req.body.accountValue) || 0 : 0;
+        const result = db.prepare('INSERT INTO accounts (name, commissionPerContract, accountValue) VALUES (?, ?, ?)').run(req.body.name.trim(), commissionCents, accountValue);
         const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(result.lastInsertRowid);
-        apiResponse.created(res, accountToApi(account));
+        apiResponse.created(res, mapAccount(account));
     } catch (error) {
         console.error('Error creating account:', error);
         apiResponse.error(res, 'Failed to create account');
@@ -67,9 +71,12 @@ router.put('/:id', (req, res) => {
         const commissionCents = req.body.commissionPerContract !== undefined
             ? (toCents(req.body.commissionPerContract) || 0)
             : current.commissionPerContract;
+        const accountValue = req.body.accountValue !== undefined
+            ? (Number(req.body.accountValue) || 0)
+            : (current.accountValue || 0);
 
-        db.prepare('UPDATE accounts SET name = ?, commissionPerContract = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?')
-            .run(name, commissionCents, req.params.id);
+        db.prepare('UPDATE accounts SET name = ?, commissionPerContract = ?, accountValue = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?')
+            .run(name, commissionCents, accountValue, req.params.id);
 
         // If commission rate changed, recalculate all trades for this account
         if (commissionCents !== current.commissionPerContract) {
@@ -84,7 +91,7 @@ router.put('/:id', (req, res) => {
         }
 
         const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.params.id);
-        apiResponse.success(res, accountToApi(account));
+        apiResponse.success(res, mapAccount(account));
     } catch (error) {
         console.error('Error updating account:', error);
         apiResponse.error(res, 'Failed to update account');

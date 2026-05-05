@@ -94,6 +94,10 @@ export const validateAccount = (data, isUpdate = false) => {
         const rate = Number(data.commissionPerContract);
         if (isNaN(rate) || rate < 0) errors.push('commissionPerContract must be a non-negative number');
     }
+    if (data.accountValue !== undefined && data.accountValue !== null && data.accountValue !== '') {
+        const val = Number(data.accountValue);
+        if (isNaN(val) || val < 0) errors.push('accountValue must be a non-negative number');
+    }
     return errors;
 };
 

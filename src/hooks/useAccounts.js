@@ -41,17 +41,19 @@ export const useAccounts = () => {
         fetchAccounts();
     }, []);
 
-    const createAccount = useCallback(async (name, commissionPerContract) => {
+    const createAccount = useCallback(async (name, commissionPerContract, accountValue) => {
         const data = { name };
         if (commissionPerContract !== undefined) data.commissionPerContract = commissionPerContract;
+        if (accountValue !== undefined) data.accountValue = accountValue;
         const response = await accountsApi.create(data);
         await fetchAccounts();
         return response.data;
     }, [fetchAccounts]);
 
-    const renameAccount = useCallback(async (id, name, commissionPerContract) => {
+    const renameAccount = useCallback(async (id, name, commissionPerContract, accountValue) => {
         const data = { name };
         if (commissionPerContract !== undefined) data.commissionPerContract = commissionPerContract;
+        if (accountValue !== undefined) data.accountValue = accountValue;
         const response = await accountsApi.update(id, data);
         await fetchAccounts();
         return response.data;

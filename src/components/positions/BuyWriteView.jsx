@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     RefreshCw, CheckCircle2, RotateCw, Edit2,
-    PlusCircle, Layers, AlertTriangle
+    PlusCircle, Layers, AlertTriangle, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { formatCurrency, formatDateShort } from '../../utils/formatters';
 import { calculateDTE, calculateMetrics } from '../../utils/calculations';
@@ -48,22 +48,91 @@ const StatusBadge = ({ status }) => {
 };
 
 // ============================================================
+// AnalyticsRow — expandable metrics panel (rendered as a <tr>)
+// ============================================================
+const AnalyticsRow = ({ analytics, colSpan }) => {
+    const a = analytics;
+    const fmt2   = (n) => n != null ? n.toFixed(2) : '—';
+    const fmtPct = (n) => n != null ? `${n.toFixed(2)}%` : '—';
+    const fmtCur = (n) => n != null ? formatCurrency(n) : '—';
+    return (
+        <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700">
+            <td colSpan={colSpan} className="px-4 py-3">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-2 text-xs">
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Breakeven</div>
+                        <div className="font-mono font-bold text-slate-700 dark:text-slate-200">${fmt2(a.breakeven)}</div>
+                        <div className="text-slate-400">{fmtPct(a.downsidePct)} downside cover</div>
+                    </div>
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Premium ROI</div>
+                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.premiumROI)}</div>
+                        <div className="text-slate-400">this cycle</div>
+                    </div>
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Ann. ROC</div>
+                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.annualizedROC)}</div>
+                        <div className="text-slate-400">annualized</div>
+                    </div>
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">If Called</div>
+                        <div className={`font-mono font-bold ${a.ifCalledRetPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                            {fmtPct(a.ifCalledRetPct)}
+                        </div>
+                        <div className="text-slate-400">stock + prem</div>
+                    </div>
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Max Profit</div>
+                        <div className="font-mono font-bold text-slate-700 dark:text-slate-200">{fmtCur(a.maxProfit)}</div>
+                        <div className="text-slate-400">if called away</div>
+                    </div>
+                    <div>
+                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">% of Account</div>
+                        {a.pctOfAccount != null ? (
+                            <>
+                                <div className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{fmtPct(a.pctOfAccount)}</div>
+                                <div className="text-slate-400">capital deployed</div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="font-mono text-slate-400">—</div>
+                                <div className="text-slate-400">set acct value in settings</div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
+};
+
+// ============================================================
 // BuyWriteView — Main Component
 // ============================================================
 export const BuyWriteView = ({
     accountId,
+    accountValue,       // total account size in dollars — used for % of account calc
     livePricesEnabled,
     onRoll,
     onEdit,
     onExpire,
     onNewTrade,
 }) => {
-    const [ccTrades,     setCcTrades]     = useState([]);
-    const [stocks,       setStocks]       = useState([]);
-    const [prices,       setPrices]       = useState({});
-    const [optionPrices, setOptionPrices] = useState({});
-    const [loading,      setLoading]      = useState(true);
-    const [refreshing,   setRefreshing]   = useState(false);
+    const [ccTrades,        setCcTrades]        = useState([]);
+    const [stocks,          setStocks]          = useState([]);
+    const [prices,          setPrices]          = useState({});
+    const [optionPrices,    setOptionPrices]    = useState({});
+    const [loading,         setLoading]         = useState(true);
+    const [refreshing,      setRefreshing]      = useState(false);
+    const [expandedTickers, setExpandedTickers] = useState(new Set());
+
+    const toggleExpanded = (ticker) => {
+        setExpandedTickers(prev => {
+            const next = new Set(prev);
+            next.has(ticker) ? next.delete(ticker) : next.add(ticker);
+            return next;
+        });
+    };
 
     // ----------------------------------------------------------
     // Fetch trades + stocks
@@ -194,11 +263,34 @@ export const BuyWriteView = ({
                 ? avgCostBasis * totalShares
                 : (cc ? cc.strike * (cc.quantity || 1) * 100 : 0);
 
+            // ── Analytics (for expandable row) ──
+            let analytics = null;
+            if (cc && avgCostBasis != null && avgCostBasis > 0) {
+                const premium       = cc.entryPrice;                                        // per-share premium
+                const strike        = cc.strike;
+                const breakeven     = avgCostBasis - premium;                              // stock price at which you break even
+                const downsidePct   = (premium / avgCostBasis) * 100;                     // % downside protection
+                const premiumROI    = (premium / avgCostBasis) * 100;                     // same value, named for context
+                // Annualized: use full cycle days (entry → expiry), not remaining DTE
+                const openedMs      = new Date(cc.openedDate + 'T12:00:00').getTime();
+                const expiryMs      = new Date(cc.expirationDate + 'T12:00:00').getTime();
+                const cycleDays     = Math.max(1, Math.round((expiryMs - openedMs) / 86400000));
+                const annualizedROC = premiumROI * (365 / cycleDays);
+                // If-called: stock gain to strike + premium, as % of cost basis
+                const ifCalledRetPct = ((strike - avgCostBasis + premium) / avgCostBasis) * 100;
+                const maxProfit      = (strike - avgCostBasis + premium) * (totalShares || (cc.quantity || 1) * 100);
+                // % of account (only if accountValue prop is provided and > 0)
+                const pctOfAccount  = (accountValue && accountValue > 0)
+                    ? (deployedCapital / accountValue) * 100
+                    : null;
+                analytics = { breakeven, downsidePct, premiumROI, annualizedROC, ifCalledRetPct, maxProfit, pctOfAccount };
+            }
+
             result.push({
                 ticker, stockRecords, totalShares, avgCostBasis,
                 stockPrice, stockPnl, cc, liveOptionPrice,
                 optionMetrics, optionsPnl, totalPnl,
-                itmOtm, itmOtmPct, dte, status, profitPct, deployedCapital,
+                itmOtm, itmOtmPct, dte, status, profitPct, deployedCapital, analytics,
             });
         }
 
@@ -339,8 +431,8 @@ export const BuyWriteView = ({
 
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {positions.map((pos) => (
+                                    <React.Fragment key={pos.ticker}>
                                     <tr
-                                        key={pos.ticker}
                                         className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/40 ${
                                             pos.status === 'UNCOVERED' ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''
                                         }`}
@@ -348,6 +440,18 @@ export const BuyWriteView = ({
                                         {/* Ticker */}
                                         <td className="px-3 py-3 font-bold text-slate-800 dark:text-white text-sm tracking-wide">
                                             <div className="flex items-center gap-1">
+                                                {pos.analytics && (
+                                                    <button
+                                                        onClick={() => toggleExpanded(pos.ticker)}
+                                                        className="text-slate-400 hover:text-indigo-500 transition-colors"
+                                                        title="Show analytics"
+                                                    >
+                                                        {expandedTickers.has(pos.ticker)
+                                                            ? <ChevronDown className="w-3.5 h-3.5" />
+                                                            : <ChevronRight className="w-3.5 h-3.5" />
+                                                        }
+                                                    </button>
+                                                )}
                                                 {pos.ticker}
                                                 {pos.status === 'UNCOVERED' && (
                                                     <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
@@ -474,6 +578,12 @@ export const BuyWriteView = ({
                                             </div>
                                         </td>
                                     </tr>
+
+                                    {/* ── Analytics Expansion Row ── */}
+                                    {expandedTickers.has(pos.ticker) && pos.analytics && (
+                                        <AnalyticsRow analytics={pos.analytics} colSpan={15} />
+                                    )}
+                                    </React.Fragment>
                                 ))}
 
                                 {/* ── Totals Row ── */}

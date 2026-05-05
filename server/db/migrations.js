@@ -441,7 +441,14 @@ const migrations = [
             db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('call_put_migration_v1', 'true');
             db.pragma('foreign_keys = ON');
         }
-    }
+    },
+    {
+        version: 15,
+        description: 'Account value field',
+        up: () => {
+            db.exec(`ALTER TABLE accounts ADD COLUMN accountValue REAL NOT NULL DEFAULT 0`);
+        }
+    },
 ];
 
 // Run pending migrations
