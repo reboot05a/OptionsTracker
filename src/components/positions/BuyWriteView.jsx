@@ -44,7 +44,7 @@ const StatusBadge = ({ status }) => {
         CC_ONLY:   { cls: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',   label: 'NO STOCK'  },
     };
     const { cls, label } = cfg[status] || cfg.CC_ONLY;
-    return <span className={`px-2 py-0.5 rounded text-xs font-bold ${cls}`}>{label}</span>;
+    return <span className={`px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${cls}`}>{label}</span>;
 };
 
 // ============================================================
@@ -354,7 +354,7 @@ export const BuyWriteView = ({
                                                 )}
                                             </div>
                                             {pos.cc?.notes && (
-                                                <div className="text-xs font-normal text-slate-400 dark:text-slate-500 mt-0.5 truncate max-w-[120px]">
+                                                <div className="text-xs font-normal text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-[180px]">
                                                     {pos.cc.notes.split(/\r?\n/)[0].trim()}
                                                 </div>
                                             )}
@@ -387,7 +387,7 @@ export const BuyWriteView = ({
                                         <td className="px-3 py-3 text-center font-mono text-sm text-slate-700 dark:text-slate-200 border-l-2 border-indigo-200 dark:border-indigo-700 bg-indigo-50/30 dark:bg-indigo-900/5">
                                             {pos.cc ? `$${pos.cc.strike}` : <span className="text-slate-300 dark:text-slate-600">—</span>}
                                         </td>
-                                        <td className="px-3 py-3 text-center text-sm text-slate-500 dark:text-slate-400 bg-indigo-50/30 dark:bg-indigo-900/5">
+                                        <td className="px-3 py-3 text-center text-sm text-slate-500 dark:text-slate-400 bg-indigo-50/30 dark:bg-indigo-900/5 whitespace-nowrap">
                                             {pos.cc ? formatDateShort(pos.cc.expirationDate) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                                         </td>
                                         <td className={`px-3 py-3 text-center font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5 ${dteColor(pos.dte)}`}>
@@ -430,7 +430,7 @@ export const BuyWriteView = ({
 
                                         {/* Actions */}
                                         <td className="px-3 py-3 text-right">
-                                            <div className="flex justify-end gap-1 flex-wrap">
+                                            <div className="flex justify-end gap-1 flex-nowrap">
                                                 {pos.status === 'UNCOVERED' && (
                                                     <button
                                                         onClick={() => onNewTrade && onNewTrade()}
