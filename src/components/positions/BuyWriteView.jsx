@@ -77,7 +77,7 @@ const CenteredBar = ({ pct, range, positiveIsGood = true }) => {
                 ? <ChevronLeft  className={`w-2.5 h-2.5 flex-shrink-0 ${leftArrowCls}`}  />
                 : <span className="w-2.5 flex-shrink-0" />
             }
-            <div className="relative flex-1 h-[3px] bg-slate-100 dark:bg-slate-700 rounded-full">
+            <div className="relative flex-1 h-[6px] bg-slate-100 dark:bg-slate-700 rounded-full">
                 {/* Center tick */}
                 <div className="absolute top-0 bottom-0 w-px bg-slate-400 dark:bg-slate-500"
                      style={{ left: '50%', transform: 'translateX(-50%)' }} />
@@ -111,7 +111,7 @@ const DteBar = ({ dte, openedDate, expirationDate }) => {
                      : dte <= DTE_WARN   ? 'bg-amber-400 dark:bg-amber-300'
                      :                     'bg-emerald-400 dark:bg-emerald-500';
     return (
-        <div className="mt-1.5 h-[3px] bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div className="mt-1.5 h-[6px] bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div className={`h-full rounded-full ${colorCls}`} style={{ width: `${remainPct}%` }} />
         </div>
     );
@@ -648,11 +648,13 @@ export const BuyWriteView = ({
                                                 </span>
                                             ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                                             {pos.stockPrice != null && pos.avgCostBasis != null && pos.avgCostBasis > 0 && (
-                                                <CenteredBar
-                                                    pct={(pos.stockPrice - pos.avgCostBasis) / pos.avgCostBasis * 100}
-                                                    range={DRIFT_RANGE_PCT}
-                                                    positiveIsGood={true}
-                                                />
+                                                <div className="-mx-2">
+                                                    <CenteredBar
+                                                        pct={(pos.stockPrice - pos.avgCostBasis) / pos.avgCostBasis * 100}
+                                                        range={DRIFT_RANGE_PCT}
+                                                        positiveIsGood={true}
+                                                    />
+                                                </div>
                                             )}
                                         </td>
                                         <td className={`px-3 py-3 text-right font-mono text-sm font-semibold bg-slate-50/40 dark:bg-slate-800/20 ${pnlColor(pos.stockPnl)}`}>
