@@ -449,6 +449,13 @@ const migrations = [
             db.exec(`ALTER TABLE accounts ADD COLUMN accountValue REAL NOT NULL DEFAULT 0`);
         }
     },
+    {
+        version: 16,
+        description: 'Add score field to trades for AI entry scoring',
+        up: () => {
+            db.exec(`ALTER TABLE trades ADD COLUMN score REAL`);
+        }
+    },
 ];
 
 // Run pending migrations

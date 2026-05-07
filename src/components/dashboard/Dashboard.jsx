@@ -55,7 +55,7 @@ export const Dashboard = ({ stats }) => {
             />
 
             <KpiCard
-                label="Deployed Capital"
+                label="Strike Obligation"
                 value={formatCurrency(stats.capitalAtRisk)}
                 valueClassName="text-slate-700 dark:text-slate-200"
                 subtext={`${stats.openTradesCount} open trade${stats.openTradesCount !== 1 ? 's' : ''}`}

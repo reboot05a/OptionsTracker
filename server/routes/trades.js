@@ -63,8 +63,8 @@ router.post('/roll', (req, res) => {
 
             // Create new rolled trade (inherit accountId from original)
             const result = db.prepare(`
-                INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
                 original.ticker,
                 newTrade.type || original.type,
@@ -80,7 +80,8 @@ router.post('/roll', (req, res) => {
                 originalTradeId,
                 newTrade.notes || null,
                 original.accountId,
-                newCommission
+                newCommission,
+                (newTrade.score !== undefined && newTrade.score !== null && newTrade.score !== '') ? Number(newTrade.score) : null
             );
 
             return result.lastInsertRowid;
@@ -105,8 +106,8 @@ router.post('/import', (req, res) => {
         }
 
         const stmt = db.prepare(`
-            INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const dupCheck = db.prepare(`
@@ -173,7 +174,8 @@ router.post('/import', (req, res) => {
                             newParentId,
                             trade.notes || null,
                             tradeAccountId,
-                            tradeCommission
+                            tradeCommission,
+                            (trade.score !== undefined && trade.score !== null && trade.score !== '') ? Number(trade.score) : null
                         );
                         const newId = result.lastInsertRowid;
                         if (trade.id) idMap.set(Number(trade.id), newId);
@@ -354,7 +356,8 @@ router.post('/', (req, res) => {
             parentTradeId,
             notes,
             accountId,
-            commission
+            commission,
+            score
         } = req.body;
 
         // Validate input
@@ -392,8 +395,8 @@ router.post('/', (req, res) => {
             : calculateCommission(accountId, tradeQty, tradeStatus);
 
         const stmt = db.prepare(`
-      INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
         const result = stmt.run(
@@ -411,7 +414,8 @@ router.post('/', (req, res) => {
             resolvedParentTradeId,
             notes || null,
             accountId || null,
-            commissionCents
+            commissionCents,
+            (score !== undefined && score !== null && score !== '') ? Number(score) : null
         );
 
         const newTrade = db.prepare('SELECT * FROM trades WHERE id = ?').get(result.lastInsertRowid);
@@ -451,6 +455,7 @@ router.put('/:id', (req, res) => {
         const status = req.body.status ?? currentTrade.status;
         const parentTradeId = req.body.parentTradeId ?? currentTrade.parentTradeId;
         const notes = req.body.notes ?? currentTrade.notes;
+        const score = req.body.score !== undefined ? (req.body.score !== null && req.body.score !== '' ? Number(req.body.score) : null) : currentTrade.score;
 
         // Commission: if explicitly provided use it, else always recalculate from account rate
         let commissionCents;
@@ -463,7 +468,7 @@ router.put('/:id', (req, res) => {
         const stmt = db.prepare(`
       UPDATE trades
       SET ticker = ?, type = ?, strike = ?, quantity = ?, delta = ?, entryPrice = ?, closePrice = ?,
-          openedDate = ?, expirationDate = ?, closedDate = ?, status = ?, parentTradeId = ?, notes = ?, commission = ?, updatedAt = CURRENT_TIMESTAMP
+          openedDate = ?, expirationDate = ?, closedDate = ?, status = ?, parentTradeId = ?, notes = ?, commission = ?, score = ?, updatedAt = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
 
@@ -482,6 +487,7 @@ router.put('/:id', (req, res) => {
             parentTradeId || null,
             notes || null,
             commissionCents,
+            score,
             req.params.id
         );
 

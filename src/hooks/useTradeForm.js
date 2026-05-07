@@ -7,7 +7,7 @@ const initialFormState = {
     expirationDate: '',
     closedDate: '',
     strike: '',
-    type: 'CSP',
+    type: 'CC',
     quantity: 1,
     delta: '',
     entryPrice: '',
@@ -16,6 +16,7 @@ const initialFormState = {
     parentTradeId: null,
     notes: '',
     commission: '',
+    score: '',
 };
 
 export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, accountId }) => {
@@ -53,6 +54,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
                 parentTradeId: trade.parentTradeId || null,
                 notes: trade.notes || '',
                 commission: trade.commission ? trade.commission : '',
+                score: trade.score ?? '',
             });
         } else {
             setEditingId(null);
@@ -185,6 +187,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
             parentTradeId: formData.parentTradeId || null,
             notes: formData.notes || null,
             accountId: accountId || modalAccountId || null,
+            score: formData.score !== '' && formData.score !== null ? Number(formData.score) : null,
         };
         // Only send commission if user explicitly set it (non-empty string)
         if (formData.commission !== '' && formData.commission !== null && formData.commission !== undefined) {
