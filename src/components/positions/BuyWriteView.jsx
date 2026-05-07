@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     RefreshCw, CheckCircle2, RotateCw, Edit2,
-    PlusCircle, Layers, AlertTriangle, ChevronRight, ChevronDown,
+    PlusCircle, Layers, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft,
     Ban, FileText, X
 } from 'lucide-react';
 import { formatCurrency, formatDateShort } from '../../utils/formatters';
@@ -14,6 +14,8 @@ import { tradesApi, stocksApi } from '../../services/api';
 const DTE_DANGER        = 7;   // days — red warning
 const DTE_WARN          = 14;  // days — orange warning
 const PROFIT_TARGET_PCT = 50;  // % of max premium — flag early close opportunity
+const DRIFT_RANGE_PCT   = 20;  // % — price vs cost basis bar scale (±)
+const STRIKE_RANGE_PCT  = 15;  // % — price vs strike bar scale (±)
 
 // ============================================================
 // Score tier config — matches WF40 report cutoffs
@@ -43,6 +45,74 @@ const SummaryCard = ({ label, value, subtext, color = 'slate' }) => {
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{label}</div>
             <div className={`text-2xl font-bold ${colorMap[color] || colorMap.slate}`}>{value}</div>
             {subtext && <div className="text-xs text-slate-400 mt-1">{subtext}</div>}
+        </div>
+    );
+};
+
+// ============================================================
+// CenteredBar — bi-directional bar anchored at center (0%)
+//   pct            : deviation value (positive = right, negative = left)
+//   range          : max scale (e.g. 20 for ±20%)
+//   positiveIsGood : true → right=green/left=red | false → right=red/left=green
+// ============================================================
+const CenteredBar = ({ pct, range, positiveIsGood = true }) => {
+    if (pct == null) return null;
+    const clamped    = Math.max(-range, Math.min(range, pct));
+    const overLeft   = pct < -range;
+    const overRight  = pct >  range;
+    const isPositive = pct >= 0;
+    const fillWidth  = `${(Math.abs(clamped) / range) * 50}%`;
+
+    const goodCls = 'bg-emerald-400 dark:bg-emerald-500';
+    const badCls  = 'bg-red-400 dark:bg-red-500';
+    const fillCls = isPositive
+        ? (positiveIsGood ? goodCls : badCls)
+        : (positiveIsGood ? badCls  : goodCls);
+    const leftArrowCls  = positiveIsGood ? 'text-red-400 dark:text-red-500'     : 'text-emerald-400 dark:text-emerald-500';
+    const rightArrowCls = positiveIsGood ? 'text-emerald-400 dark:text-emerald-500' : 'text-red-400 dark:text-red-500';
+
+    return (
+        <div className="flex items-center gap-0.5 mt-1.5">
+            {overLeft
+                ? <ChevronLeft  className={`w-2.5 h-2.5 flex-shrink-0 ${leftArrowCls}`}  />
+                : <span className="w-2.5 flex-shrink-0" />
+            }
+            <div className="relative flex-1 h-[3px] bg-slate-100 dark:bg-slate-700 rounded-full">
+                {/* Center tick */}
+                <div className="absolute top-0 bottom-0 w-px bg-slate-400 dark:bg-slate-500"
+                     style={{ left: '50%', transform: 'translateX(-50%)' }} />
+                {/* Directional fill */}
+                <div
+                    className={`absolute top-0 bottom-0 rounded-full ${fillCls}`}
+                    style={isPositive
+                        ? { left: '50%',  width: fillWidth }
+                        : { right: '50%', width: fillWidth }}
+                />
+            </div>
+            {overRight
+                ? <ChevronRight className={`w-2.5 h-2.5 flex-shrink-0 ${rightArrowCls}`} />
+                : <span className="w-2.5 flex-shrink-0" />
+            }
+        </div>
+    );
+};
+
+// ============================================================
+// DteBar — depleting countdown bar (full at entry → empty at expiry)
+//   Color tracks DTE thresholds: green → amber → red
+// ============================================================
+const DteBar = ({ dte, openedDate, expirationDate }) => {
+    if (dte == null || !openedDate || !expirationDate) return null;
+    const totalDays  = Math.max(1, Math.round(
+        (new Date(expirationDate + 'T12:00:00') - new Date(openedDate + 'T12:00:00')) / 86400000
+    ));
+    const remainPct  = Math.max(0, Math.min(100, (dte / totalDays) * 100));
+    const colorCls   = dte <= DTE_DANGER ? 'bg-red-500 dark:bg-red-400'
+                     : dte <= DTE_WARN   ? 'bg-amber-400 dark:bg-amber-300'
+                     :                     'bg-emerald-400 dark:bg-emerald-500';
+    return (
+        <div className="mt-1.5 h-[3px] bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${colorCls}`} style={{ width: `${remainPct}%` }} />
         </div>
     );
 };
@@ -577,6 +647,13 @@ export const BuyWriteView = ({
                                                     ${pos.stockPrice.toFixed(2)}
                                                 </span>
                                             ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                                            {pos.stockPrice != null && pos.avgCostBasis != null && pos.avgCostBasis > 0 && (
+                                                <CenteredBar
+                                                    pct={(pos.stockPrice - pos.avgCostBasis) / pos.avgCostBasis * 100}
+                                                    range={DRIFT_RANGE_PCT}
+                                                    positiveIsGood={true}
+                                                />
+                                            )}
                                         </td>
                                         <td className={`px-3 py-3 text-right font-mono text-sm font-semibold bg-slate-50/40 dark:bg-slate-800/20 ${pnlColor(pos.stockPnl)}`}>
                                             {pos.stockPnl != null ? formatCurrency(pos.stockPnl) : <span className="text-slate-300 dark:text-slate-600">—</span>}
@@ -591,6 +668,13 @@ export const BuyWriteView = ({
                                         </td>
                                         <td className={`px-3 py-3 text-center font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5 ${dteColor(pos.dte)}`}>
                                             {pos.dte != null ? `${pos.dte}d` : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                                            {pos.cc && pos.dte != null && (
+                                                <DteBar
+                                                    dte={pos.dte}
+                                                    openedDate={pos.cc.openedDate}
+                                                    expirationDate={pos.cc.expirationDate}
+                                                />
+                                            )}
                                         </td>
                                         <td className="px-3 py-3 text-center bg-indigo-50/30 dark:bg-indigo-900/5">
                                             {pos.itmOtm ? (
@@ -602,6 +686,13 @@ export const BuyWriteView = ({
                                                     {pos.itmOtm} {Math.abs(pos.itmOtmPct).toFixed(1)}%
                                                 </span>
                                             ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                                            {pos.itmOtmPct != null && (
+                                                <CenteredBar
+                                                    pct={pos.itmOtmPct}
+                                                    range={STRIKE_RANGE_PCT}
+                                                    positiveIsGood={false}
+                                                />
+                                            )}
                                         </td>
                                         <td className="px-3 py-3 text-right font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5">
                                             {pos.cc ? (
