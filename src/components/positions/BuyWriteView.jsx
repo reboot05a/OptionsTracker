@@ -16,6 +16,7 @@ const DTE_WARN          = 14;  // days — orange warning
 const PROFIT_TARGET_PCT = 50;  // % of max premium — flag early close opportunity
 const DRIFT_RANGE_PCT   = 20;  // % — price vs cost basis bar scale (±)
 const STRIKE_RANGE_PCT  = 15;  // % — price vs strike bar scale (±)
+const OTM_WARN_PCT      = 3;   // % — OTM within this distance of strike → amber warning
 
 // ============================================================
 // Score tier config — matches WF40 report cutoffs
@@ -55,7 +56,7 @@ const SummaryCard = ({ label, value, subtext, color = 'slate' }) => {
 //   range          : max scale (e.g. 20 for ±20%)
 //   positiveIsGood : true → right=green/left=red | false → right=red/left=green
 // ============================================================
-const CenteredBar = ({ pct, range, positiveIsGood = true }) => {
+const CenteredBar = ({ pct, range, positiveIsGood = true, amberZone = 0 }) => {
     if (pct == null) return null;
     const clamped    = Math.max(-range, Math.min(range, pct));
     const overLeft   = pct < -range;
@@ -63,12 +64,19 @@ const CenteredBar = ({ pct, range, positiveIsGood = true }) => {
     const isPositive = pct >= 0;
     const fillWidth  = `${(Math.abs(clamped) / range) * 50}%`;
 
-    const goodCls = 'bg-emerald-400 dark:bg-emerald-500';
-    const badCls  = 'bg-red-400 dark:bg-red-500';
-    const fillCls = isPositive
-        ? (positiveIsGood ? goodCls : badCls)
-        : (positiveIsGood ? badCls  : goodCls);
-    const leftArrowCls  = positiveIsGood ? 'text-red-400 dark:text-red-500'     : 'text-emerald-400 dark:text-emerald-500';
+    const goodCls  = 'bg-emerald-400 dark:bg-emerald-500';
+    const badCls   = 'bg-red-400 dark:bg-red-500';
+    const amberCls = 'bg-amber-400 dark:bg-amber-500';
+
+    // Amber fires when on the "good" side but within amberZone of center
+    const isGoodSide = positiveIsGood ? isPositive : !isPositive;
+    const isAmber    = amberZone > 0 && isGoodSide && Math.abs(pct) < amberZone;
+
+    const fillCls = isAmber   ? amberCls
+                  : isPositive
+                  ? (positiveIsGood ? goodCls : badCls)
+                  : (positiveIsGood ? badCls  : goodCls);
+    const leftArrowCls  = positiveIsGood ? 'text-red-400 dark:text-red-500'         : 'text-emerald-400 dark:text-emerald-500';
     const rightArrowCls = positiveIsGood ? 'text-emerald-400 dark:text-emerald-500' : 'text-red-400 dark:text-red-500';
 
     return (
@@ -679,20 +687,24 @@ export const BuyWriteView = ({
                                             )}
                                         </td>
                                         <td className="px-3 py-3 text-center bg-indigo-50/30 dark:bg-indigo-900/5">
-                                            {pos.itmOtm ? (
-                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                                    pos.itmOtm === 'ITM'
-                                                        ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
-                                                        : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                                                }`}>
-                                                    {pos.itmOtm} {Math.abs(pos.itmOtmPct).toFixed(1)}%
-                                                </span>
-                                            ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                                            {pos.itmOtm ? (() => {
+                                                const isItm  = pos.itmOtm === 'ITM';
+                                                const isWarn = !isItm && Math.abs(pos.itmOtmPct) < OTM_WARN_PCT;
+                                                const badgeCls = isItm  ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
+                                                               : isWarn ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'
+                                                               :          'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400';
+                                                return (
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${badgeCls}`}>
+                                                        {pos.itmOtm} {Math.abs(pos.itmOtmPct).toFixed(1)}%
+                                                    </span>
+                                                );
+                                            })() : <span className="text-slate-300 dark:text-slate-600">—</span>}
                                             {pos.itmOtmPct != null && (
                                                 <CenteredBar
                                                     pct={pos.itmOtmPct}
                                                     range={STRIKE_RANGE_PCT}
                                                     positiveIsGood={false}
+                                                    amberZone={OTM_WARN_PCT}
                                                 />
                                             )}
                                         </td>
