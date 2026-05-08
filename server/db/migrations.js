@@ -456,6 +456,13 @@ const migrations = [
             db.exec(`ALTER TABLE trades ADD COLUMN score REAL`);
         }
     },
+    {
+        version: 17,
+        description: 'Add iv field to trades for entry implied volatility (Monitoring Dim B)',
+        up: () => {
+            db.exec(`ALTER TABLE trades ADD COLUMN iv REAL`);
+        }
+    },
 ];
 
 // Run pending migrations

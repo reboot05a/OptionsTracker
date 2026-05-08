@@ -63,14 +63,15 @@ router.post('/roll', (req, res) => {
 
             // Create new rolled trade (inherit accountId from original)
             const result = db.prepare(`
-                INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO trades (ticker, type, strike, quantity, delta, iv, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
                 original.ticker,
                 newTrade.type || original.type,
                 toCents(newTrade.strike),
                 newQty,
                 newTrade.delta || null,
+                (newTrade.iv !== undefined && newTrade.iv !== null && newTrade.iv !== '') ? Number(newTrade.iv) : null,
                 toCents(newTrade.entryPrice),
                 toCents(newTrade.closePrice) || 0,
                 newTrade.openedDate,
@@ -106,8 +107,8 @@ router.post('/import', (req, res) => {
         }
 
         const stmt = db.prepare(`
-            INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO trades (ticker, type, strike, quantity, delta, iv, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const dupCheck = db.prepare(`
@@ -165,6 +166,7 @@ router.post('/import', (req, res) => {
                             toCents(trade.strike),
                             tradeQty,
                             trade.delta || null,
+                            (trade.iv !== undefined && trade.iv !== null && trade.iv !== '') ? Number(trade.iv) : null,
                             toCents(trade.entryPrice),
                             toCents(trade.closePrice) || 0,
                             trade.openedDate,
@@ -347,6 +349,7 @@ router.post('/', (req, res) => {
             strike,
             quantity,
             delta,
+            iv,
             entryPrice,
             closePrice,
             openedDate,
@@ -395,8 +398,8 @@ router.post('/', (req, res) => {
             : calculateCommission(accountId, tradeQty, tradeStatus);
 
         const stmt = db.prepare(`
-      INSERT INTO trades (ticker, type, strike, quantity, delta, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO trades (ticker, type, strike, quantity, delta, iv, entryPrice, closePrice, openedDate, expirationDate, closedDate, status, parentTradeId, notes, accountId, commission, score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
         const result = stmt.run(
@@ -405,6 +408,7 @@ router.post('/', (req, res) => {
             toCents(strike),
             tradeQty,
             delta || null,
+            (iv !== undefined && iv !== null && iv !== '') ? Number(iv) : null,
             toCents(entryPrice),
             toCents(closePrice) || 0,
             openedDate,
@@ -447,6 +451,7 @@ router.put('/:id', (req, res) => {
         const strike = req.body.strike ?? toDollars(currentTrade.strike);
         const quantity = req.body.quantity ?? currentTrade.quantity;
         const delta = req.body.delta ?? currentTrade.delta;
+        const iv = req.body.iv !== undefined ? (req.body.iv !== null && req.body.iv !== '' ? Number(req.body.iv) : null) : currentTrade.iv;
         const entryPrice = req.body.entryPrice ?? toDollars(currentTrade.entryPrice);
         const closePrice = req.body.closePrice ?? toDollars(currentTrade.closePrice);
         const openedDate = req.body.openedDate ?? currentTrade.openedDate;
@@ -467,7 +472,7 @@ router.put('/:id', (req, res) => {
 
         const stmt = db.prepare(`
       UPDATE trades
-      SET ticker = ?, type = ?, strike = ?, quantity = ?, delta = ?, entryPrice = ?, closePrice = ?,
+      SET ticker = ?, type = ?, strike = ?, quantity = ?, delta = ?, iv = ?, entryPrice = ?, closePrice = ?,
           openedDate = ?, expirationDate = ?, closedDate = ?, status = ?, parentTradeId = ?, notes = ?, commission = ?, score = ?, updatedAt = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
@@ -478,6 +483,7 @@ router.put('/:id', (req, res) => {
             toCents(strike),
             quantity || 1,
             delta || null,
+            iv,
             toCents(entryPrice),
             toCents(closePrice) || 0,
             openedDate,

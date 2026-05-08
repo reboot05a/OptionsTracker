@@ -52,6 +52,11 @@ export const validateTrade = (trade, isUpdate = false) => {
         if (isNaN(delta) || delta < 0 || delta > 1) errors.push('delta must be between 0 and 1');
     }
 
+    if (trade.iv !== undefined && trade.iv !== null && trade.iv !== '') {
+        const iv = Number(trade.iv);
+        if (isNaN(iv) || iv < 0 || iv > 5) errors.push('iv must be between 0 and 5');
+    }
+
     // Date validations
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
