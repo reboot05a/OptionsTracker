@@ -25,12 +25,12 @@ const REC_STALENESS_CUTOFF = 3; // days — hide entirely beyond this
 
 const REC_LABEL = {
     HOLD:           'HOLD',
-    WATCH_CLOSELY:  'WATCH CLOSELY',
+    WATCH_CLOSELY:  'WATCH',
     CONSIDER_CLOSE: 'CONSIDER CLOSE',
     ROLL_ALERT:     'ROLL ALERT',
     CLOSE_PROFIT:   'CLOSE — PROFIT',
     CLOSE_URGENT:   'CLOSE — URGENT',
-    WRITE:          'WRITE CC',
+    WRITE:          'OPTION',
     WAIT:           'WAIT',
     EXIT_PROFIT:    'EXIT — PROFIT',
     EXIT_LOSS:      'EXIT — LOSS',
@@ -216,6 +216,32 @@ const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
         const tisBadge = recommendation.composite_tis
             ? <span className={`font-mono text-xs ${labelCls}`}> · {recommendation.composite_tis}</span>
             : null;
+
+        // NY timestamp
+        const nyTimestamp = (() => {
+            const d = new Date(recommendation.updated_at ?? recommendation.created_at);
+            if (isNaN(d)) return recommendation.run_date;
+            return d.toLocaleString('en-US', {
+                timeZone: 'America/New_York',
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true,
+            }) + ' ET';
+        })();
+
+        // Contract detail for WRITE recommendations
+        const cd = recommendation.recommendation === 'WRITE' && recommendation.contract_detail;
+        const contractChip = cd ? (() => {
+            const { strike, expiry, delta, mid, annualised_yield } = cd;
+            const parts = [
+                strike    ? `$${strike}`                          : null,
+                expiry    ? expiry.slice(5)                       : null,
+                delta     ? `δ${Number(delta).toFixed(2)}`        : null,
+                mid       ? `mid $${Number(mid).toFixed(2)}`      : null,
+                annualised_yield ? `${Number(annualised_yield).toFixed(1)}% ann` : null,
+            ].filter(Boolean);
+            return parts.join(' · ');
+        })() : null;
+
         return (
             <div className={analytics ? 'mt-3 pt-3 border-t border-slate-200 dark:border-slate-700' : ''}>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1.5">
@@ -223,8 +249,13 @@ const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
                     <span className={`text-xs font-bold uppercase tracking-wide ${labelCls}`}>
                         {label}{tisBadge}
                     </span>
-                    <span className="text-xs text-slate-400">
-                        · {recommendation.run_date}{isStale ? ' — stale' : ''}
+                    {contractChip && (
+                        <span className="text-xs font-mono font-semibold text-emerald-500 dark:text-emerald-400">
+                            {contractChip}
+                        </span>
+                    )}
+                    <span className="text-xs text-slate-400 ml-auto">
+                        {nyTimestamp}{isStale ? ' — stale' : ''}
                     </span>
                 </div>
                 {recommendation.rationale && (
