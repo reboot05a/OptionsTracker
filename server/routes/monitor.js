@@ -8,7 +8,9 @@ const router = Router();
 // Batch upsert from WF42 — one record per ticker, new run always overwrites.
 router.post('/recommendations', (req, res) => {
     try {
-        const { accountId, run_date, asof_date, recommendations } = req.body;
+        // n8n may wrap the payload in an array — unwrap if so
+        const payload = Array.isArray(req.body) ? req.body[0] : req.body;
+        const { accountId, run_date, asof_date, recommendations } = payload;
 
         if (!accountId || !run_date || !Array.isArray(recommendations) || recommendations.length === 0) {
             return apiResponse.error(res, 'Missing required fields: accountId, run_date, recommendations[]', 400);
