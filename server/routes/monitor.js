@@ -91,4 +91,33 @@ router.get('/recommendations', (req, res) => {
     }
 });
 
+// GET /api/monitor/debug
+// Diagnostic endpoint — shows migration status, row count, and all raw rows.
+router.get('/debug', (req, res) => {
+    try {
+        const tableExists = db.prepare(`
+            SELECT name FROM sqlite_master WHERE type='table' AND name='monitor_recommendations'
+        `).get();
+
+        if (!tableExists) {
+            return res.json({ ok: false, error: 'Table monitor_recommendations does not exist — migration v18 has not run' });
+        }
+
+        const migration = db.prepare(`
+            SELECT * FROM schema_migrations WHERE version = 18
+        `).get();
+
+        const rows = db.prepare('SELECT * FROM monitor_recommendations ORDER BY position_type, ticker').all();
+
+        res.json({
+            ok: true,
+            migration_v18: migration ?? 'NOT FOUND',
+            row_count: rows.length,
+            rows,
+        });
+    } catch (error) {
+        res.json({ ok: false, error: error.message });
+    }
+});
+
 export default router;
