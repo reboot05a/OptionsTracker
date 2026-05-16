@@ -463,6 +463,30 @@ const migrations = [
             db.exec(`ALTER TABLE trades ADD COLUMN iv REAL`);
         }
     },
+    {
+        version: 18,
+        description: 'Monitor recommendations table (WF42 AI output)',
+        up: () => {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS monitor_recommendations (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ticker          TEXT    NOT NULL,
+                    position_type   TEXT    NOT NULL,
+                    account_id      INTEGER NOT NULL REFERENCES accounts(id),
+                    recommendation  TEXT    NOT NULL,
+                    composite_tis   TEXT,
+                    rationale       TEXT,
+                    contract_detail TEXT,
+                    run_date        TEXT    NOT NULL,
+                    asof_date       TEXT,
+                    created_at      TEXT    DEFAULT (datetime('now')),
+                    updated_at      TEXT    DEFAULT (datetime('now'))
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_monitor_rec_ticker_account
+                    ON monitor_recommendations(ticker, account_id);
+            `);
+        }
+    },
 ];
 
 // Run pending migrations

@@ -16,6 +16,7 @@ import accountsRouter from './routes/accounts.js';
 import fundTransactionsRouter from './routes/fundTransactions.js';
 import stocksRouter from './routes/stocks.js';
 import portfolioRouter from './routes/portfolio.js';
+import monitorRouter from './routes/monitor.js';
 
 // Run startup sequence: migrations → FK enable → fixups → seed
 handleLegacyDb();
@@ -47,6 +48,7 @@ export const createApp = (rootDir) => {
     app.use('/api/fund-transactions', fundTransactionsRouter);
     app.use('/api/stocks', stocksRouter);
     app.use('/api/portfolio', portfolioRouter);
+    app.use('/api/monitor', monitorRouter);
 
     // Catch-all for SPA routing in production
     if (process.env.NODE_ENV === 'production') {
