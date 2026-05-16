@@ -224,6 +224,20 @@ export const stocksApi = {
     }
 };
 
+// Monitor API
+export const monitorApi = {
+    getRecommendations: async (params = {}) => {
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                searchParams.append(key, value);
+            }
+        });
+        const query = searchParams.toString();
+        return request(`/monitor/recommendations${query ? `?${query}` : ''}`);
+    },
+};
+
 // Portfolio API
 export const portfolioApi = {
     getStats: async (params = {}) => {

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDateShort } from '../../utils/formatters';
 import { calculateDTE, calculateMetrics } from '../../utils/calculations';
-import { tradesApi, stocksApi } from '../../services/api';
+import { tradesApi, stocksApi, monitorApi } from '../../services/api';
 
 // ============================================================
 // TUNABLE CONSTANTS
@@ -17,6 +17,30 @@ const PROFIT_TARGET_PCT = 50;  // % of max premium — flag early close opportun
 const DRIFT_RANGE_PCT   = 20;  // % — price vs cost basis bar scale (±)
 const STRIKE_RANGE_PCT  = 15;  // % — price vs strike bar scale (±)
 const OTM_WARN_PCT      = 3;   // % — OTM within this distance of strike → amber warning
+
+// ============================================================
+// Monitor recommendation config
+// ============================================================
+const REC_STALENESS_CUTOFF = 3; // days — hide entirely beyond this
+
+const REC_LABEL = {
+    HOLD:           'HOLD',
+    WATCH_CLOSELY:  'WATCH CLOSELY',
+    CONSIDER_CLOSE: 'CONSIDER CLOSE',
+    ROLL_ALERT:     'ROLL ALERT',
+    CLOSE_PROFIT:   'CLOSE — PROFIT',
+    CLOSE_URGENT:   'CLOSE — URGENT',
+    WRITE:          'WRITE CC',
+    WAIT:           'WAIT',
+    EXIT_PROFIT:    'EXIT — PROFIT',
+    EXIT_LOSS:      'EXIT — LOSS',
+};
+
+const recAgeDays = (runDate) => {
+    const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00').getTime();
+    const runMs   = new Date(runDate + 'T12:00:00').getTime();
+    return Math.round((todayMs - runMs) / 86400000);
+};
 
 // ============================================================
 // Score tier config — matches WF40 report cutoffs
@@ -176,57 +200,93 @@ const StatusBadge = ({ status }) => {
 // ============================================================
 // AnalyticsRow — expandable metrics panel (rendered as a <tr>)
 // ============================================================
-const AnalyticsRow = ({ analytics, colSpan }) => {
+const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
     const a = analytics;
     const fmt2   = (n) => n != null ? n.toFixed(2) : '—';
     const fmtPct = (n) => n != null ? `${n.toFixed(2)}%` : '—';
     const fmtCur = (n) => n != null ? formatCurrency(n) : '—';
+
+    const recSection = (() => {
+        if (!recommendation) return null;
+        const age = recAgeDays(recommendation.run_date);
+        if (age > REC_STALENESS_CUTOFF) return null;
+        const label    = REC_LABEL[recommendation.recommendation] ?? recommendation.recommendation.replace(/_/g, ' ');
+        const isStale  = recommendation.is_stale;
+        const labelCls = isStale ? 'text-slate-400 dark:text-slate-500' : 'text-orange-400 dark:text-orange-400';
+        const tisBadge = recommendation.composite_tis
+            ? <span className={`font-mono text-xs ${labelCls}`}> · {recommendation.composite_tis}</span>
+            : null;
+        return (
+            <div className={analytics ? 'mt-3 pt-3 border-t border-slate-200 dark:border-slate-700' : ''}>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1.5">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">AI Monitor</span>
+                    <span className={`text-xs font-bold uppercase tracking-wide ${labelCls}`}>
+                        {label}{tisBadge}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                        · {recommendation.run_date}{isStale ? ' — stale' : ''}
+                    </span>
+                </div>
+                {recommendation.rationale && (
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {recommendation.rationale}
+                    </p>
+                )}
+            </div>
+        );
+    })();
+
+    if (!analytics && !recSection) return null;
+
     return (
         <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700">
             <td colSpan={colSpan} className="px-4 py-3">
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-2 text-xs">
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Breakeven</div>
-                        <div className="font-mono font-bold text-slate-700 dark:text-slate-200">${fmt2(a.breakeven)}</div>
-                        <div className="text-slate-400">{fmtPct(a.downsidePct)} downside cover</div>
-                    </div>
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Premium ROI</div>
-                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.premiumROI)}</div>
-                        <div className="text-slate-400">this cycle</div>
-                    </div>
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Ann. ROC</div>
-                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.annualizedROC)}</div>
-                        <div className="text-slate-400">annualized</div>
-                    </div>
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">If Called</div>
-                        <div className={`font-mono font-bold ${a.ifCalledRetPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                            {fmtPct(a.ifCalledRetPct)}
+                {analytics && (
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-2 text-xs">
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Breakeven</div>
+                            <div className="font-mono font-bold text-slate-700 dark:text-slate-200">${fmt2(a.breakeven)}</div>
+                            <div className="text-slate-400">{fmtPct(a.downsidePct)} downside cover</div>
                         </div>
-                        <div className="text-slate-400">stock + prem</div>
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Premium ROI</div>
+                            <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.premiumROI)}</div>
+                            <div className="text-slate-400">this cycle</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Ann. ROC</div>
+                            <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{fmtPct(a.annualizedROC)}</div>
+                            <div className="text-slate-400">annualized</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">If Called</div>
+                            <div className={`font-mono font-bold ${a.ifCalledRetPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                {fmtPct(a.ifCalledRetPct)}
+                            </div>
+                            <div className="text-slate-400">stock + prem</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Max Profit</div>
+                            <div className="font-mono font-bold text-slate-700 dark:text-slate-200">{fmtCur(a.maxProfit)}</div>
+                            <div className="text-slate-400">if called away</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">% of Account</div>
+                            {a.pctOfAccount != null ? (
+                                <>
+                                    <div className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{fmtPct(a.pctOfAccount)}</div>
+                                    <div className="text-slate-400">capital deployed</div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="font-mono text-slate-400">—</div>
+                                    <div className="text-slate-400">set acct value in settings</div>
+                                </>
+                            )}
+                        </div>
                     </div>
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Max Profit</div>
-                        <div className="font-mono font-bold text-slate-700 dark:text-slate-200">{fmtCur(a.maxProfit)}</div>
-                        <div className="text-slate-400">if called away</div>
-                    </div>
-                    <div>
-                        <div className="text-slate-400 uppercase tracking-wide font-semibold mb-0.5">% of Account</div>
-                        {a.pctOfAccount != null ? (
-                            <>
-                                <div className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{fmtPct(a.pctOfAccount)}</div>
-                                <div className="text-slate-400">capital deployed</div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="font-mono text-slate-400">—</div>
-                                <div className="text-slate-400">set acct value in settings</div>
-                            </>
-                        )}
-                    </div>
-                </div>
+                )}
+                {recSection}
             </td>
         </tr>
     );
@@ -246,6 +306,7 @@ export const BuyWriteView = ({
 }) => {
     const [ccTrades,        setCcTrades]        = useState([]);
     const [stocks,          setStocks]          = useState([]);
+    const [recommendations, setRecommendations] = useState([]);
     const [prices,          setPrices]          = useState({});
     const [optionPrices,    setOptionPrices]    = useState({});
     const [loading,         setLoading]         = useState(true);
@@ -293,12 +354,15 @@ export const BuyWriteView = ({
         try {
             const tradeParams = { status: 'Open', ...(accountId && { accountId }) };
             const stockParams = { ...(accountId && { accountId }) };
-            const [tradesRes, stocksRes] = await Promise.all([
+            const recParams   = { ...(accountId && { accountId }) };
+            const [tradesRes, stocksRes, recsRes] = await Promise.all([
                 tradesApi.getAll(tradeParams),
                 stocksApi.getAll(stockParams),
+                monitorApi.getRecommendations(recParams).catch(() => ({ success: false })),
             ]);
             if (tradesRes.success) setCcTrades(tradesRes.data.filter(t => t.type === 'CC'));
             if (stocksRes.success) setStocks(stocksRes.data.filter(s => !s.soldDate));
+            if (recsRes.success)   setRecommendations(recsRes.data);
         } catch (err) {
             console.error('BuyWriteView fetch error:', err);
         } finally {
@@ -468,6 +532,17 @@ export const BuyWriteView = ({
     }), [positions]);
 
     // ----------------------------------------------------------
+    // Recommendations map — keyed by uppercase ticker
+    // ----------------------------------------------------------
+    const recByTicker = useMemo(() => {
+        const map = {};
+        for (const r of recommendations) {
+            map[r.ticker.toUpperCase()] = r;
+        }
+        return map;
+    }, [recommendations]);
+
+    // ----------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------
     const dteColor = (dte) => {
@@ -583,6 +658,13 @@ export const BuyWriteView = ({
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {positions.map((pos) => (
                                     <React.Fragment key={pos.ticker}>
+                                    {(() => {
+                                        const rec     = recByTicker[pos.ticker];
+                                        const recAge  = rec ? recAgeDays(rec.run_date) : null;
+                                        const showRec = rec && recAge <= REC_STALENESS_CUTOFF;
+                                        const hasExpansion = pos.analytics || showRec;
+                                        return (
+                                    <>
                                     <tr
                                         className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/40 ${
                                             pos.status === 'UNCOVERED' ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''
@@ -591,7 +673,7 @@ export const BuyWriteView = ({
                                         {/* Ticker */}
                                         <td className="px-3 py-3 font-bold text-slate-800 dark:text-white text-sm tracking-wide">
                                             <div className="flex items-center gap-1">
-                                                {pos.analytics && (
+                                                {hasExpansion && (
                                                     <button
                                                         onClick={() => toggleExpanded(pos.ticker)}
                                                         className="text-slate-400 hover:text-indigo-500 transition-colors"
@@ -640,6 +722,17 @@ export const BuyWriteView = ({
                                         {/* Status */}
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge status={pos.status} />
+                                            {showRec && (() => {
+                                                const label  = REC_LABEL[rec.recommendation] ?? rec.recommendation.replace(/_/g, ' ');
+                                                const cls    = rec.is_stale
+                                                    ? 'text-slate-400 dark:text-slate-500'
+                                                    : 'text-orange-400 dark:text-orange-400';
+                                                return (
+                                                    <div className={`text-xs font-semibold mt-0.5 ${cls}`}>
+                                                        {label}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
 
                                         {/* ── STOCK LEG ── */}
@@ -779,10 +872,17 @@ export const BuyWriteView = ({
                                         </td>
                                     </tr>
 
-                                    {/* ── Analytics Expansion Row ── */}
-                                    {expandedTickers.has(pos.ticker) && pos.analytics && (
-                                        <AnalyticsRow analytics={pos.analytics} colSpan={15} />
+                                    {/* ── Analytics + Recommendation Expansion Row ── */}
+                                    {expandedTickers.has(pos.ticker) && hasExpansion && (
+                                        <AnalyticsRow
+                                            analytics={pos.analytics}
+                                            recommendation={showRec ? rec : null}
+                                            colSpan={15}
+                                        />
                                     )}
+                                    </>
+                                        );
+                                    })()}
                                     </React.Fragment>
                                 ))}
 
