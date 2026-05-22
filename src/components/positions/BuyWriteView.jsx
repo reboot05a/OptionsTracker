@@ -846,7 +846,7 @@ export const BuyWriteView = ({
                                                     {pos.liveOptionPrice != null && pos.liveOptionPrice < pos.cc.entryPrice ? (
                                                         <>
                                                             {/* Option has decayed — show mid + ask capture breakdown */}
-                                                            <div className="text-xs mt-0.5">
+                                                            <div className="text-xs mt-0.5 whitespace-nowrap">
                                                                 <span className="text-slate-500 dark:text-slate-400">mid </span>
                                                                 <span className="text-emerald-500">${pos.liveOptionPrice.toFixed(2)}</span>
                                                                 {pos.profitPct != null && (
@@ -856,7 +856,7 @@ export const BuyWriteView = ({
                                                                 )}
                                                             </div>
                                                             {pos.liveOptionAsk != null && (
-                                                                <div className="text-xs mt-0.5">
+                                                                <div className="text-xs mt-0.5 whitespace-nowrap">
                                                                     <span className="text-slate-500 dark:text-slate-400">ask </span>
                                                                     <span className="text-slate-600 dark:text-slate-300">${pos.liveOptionAsk.toFixed(2)}</span>
                                                                     {pos.askCapturePct != null && (
