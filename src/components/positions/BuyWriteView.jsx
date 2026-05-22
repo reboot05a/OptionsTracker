@@ -13,7 +13,8 @@ import { tradesApi, stocksApi, monitorApi } from '../../services/api';
 // ============================================================
 const DTE_DANGER        = 7;   // days — red warning
 const DTE_WARN          = 14;  // days — orange warning
-const PROFIT_TARGET_PCT = 50;  // % of max premium — flag early close opportunity
+const PROFIT_TARGET_PCT     = 50;  // % of max premium — flag early close opportunity
+const ASK_CAPTURE_CLEAN_PCT = 40;  // % capture at ask — below this, spread friction is material
 const DRIFT_RANGE_PCT   = 20;  // % — price vs cost basis bar scale (±)
 const STRIKE_RANGE_PCT  = 15;  // % — price vs strike bar scale (±)
 const OTM_WARN_PCT      = 3;   // % — OTM within this distance of strike → amber warning
@@ -479,13 +480,19 @@ export const BuyWriteView = ({
                                     : null;
 
             // Options leg
-            let optionMetrics = null, liveOptionPrice = null, optionsPnl = null, profitPct = null;
+            let optionMetrics = null, liveOptionPrice = null, liveOptionAsk = null,
+                optionsPnl = null, profitPct = null, askCapturePct = null;
             if (cc) {
                 const optionKey  = `${ticker}:${cc.strike}:${cc.expirationDate}:${cc.type}`;
-                liveOptionPrice  = optionPrices[optionKey]?.price ?? null;
+                const optData    = optionPrices[optionKey] ?? null;
+                liveOptionPrice  = optData?.price ?? null;   // mid price
+                liveOptionAsk    = optData?.ask   ?? null;   // realistic close cost (buy back at ask)
                 optionMetrics    = calculateMetrics(cc, liveOptionPrice);
                 optionsPnl       = optionMetrics.pnl;
-                profitPct        = optionMetrics.maxProfitPercent;
+                profitPct        = optionMetrics.maxProfitPercent;  // mid-based capture %
+                // Ask-based capture: % of entry premium kept if closed NOW at the ask
+                askCapturePct    = liveOptionAsk != null && cc.entryPrice > 0
+                    ? ((cc.entryPrice - liveOptionAsk) / cc.entryPrice) * 100 : null;
             }
 
             const totalPnl = (stockPnl != null || optionsPnl != null)
@@ -534,9 +541,9 @@ export const BuyWriteView = ({
 
             result.push({
                 ticker, stockRecords, totalShares, avgCostBasis,
-                stockPrice, stockPnl, cc, liveOptionPrice,
+                stockPrice, stockPnl, cc, liveOptionPrice, liveOptionAsk,
                 optionMetrics, optionsPnl, totalPnl,
-                itmOtm, itmOtmPct, dte, status, profitPct, deployedCapital, analytics,
+                itmOtm, itmOtmPct, dte, status, profitPct, askCapturePct, deployedCapital, analytics,
             });
         }
 
@@ -836,13 +843,52 @@ export const BuyWriteView = ({
                                             {pos.cc ? (
                                                 <div>
                                                     <div className="text-slate-700 dark:text-slate-200">${pos.cc.entryPrice.toFixed(2)}</div>
+                                                    {/* Mid price + mid capture % */}
                                                     {pos.liveOptionPrice != null && (
-                                                        <div className={`text-xs ${pos.liveOptionPrice <= pos.cc.entryPrice ? 'text-emerald-500' : 'text-red-400'}`}>
-                                                            → ${pos.liveOptionPrice.toFixed(2)}
+                                                        <div className="text-xs text-slate-400 mt-0.5">
+                                                            <span className="text-slate-500 dark:text-slate-400">mid </span>
+                                                            <span className={pos.liveOptionPrice <= pos.cc.entryPrice ? 'text-emerald-500' : 'text-red-400'}>
+                                                                ${pos.liveOptionPrice.toFixed(2)}
+                                                            </span>
+                                                            {pos.profitPct != null && (
+                                                                <span className={`ml-1 ${pos.profitPct >= PROFIT_TARGET_PCT ? 'text-amber-500 font-bold' : 'text-slate-400'}`}>
+                                                                    {pos.profitPct.toFixed(0)}%
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     )}
+                                                    {/* Ask price + ask-based (realistic) capture % */}
+                                                    {pos.liveOptionAsk != null && (
+                                                        <div className="text-xs mt-0.5">
+                                                            <span className="text-slate-500 dark:text-slate-400">ask </span>
+                                                            <span className="text-slate-600 dark:text-slate-300">
+                                                                ${pos.liveOptionAsk.toFixed(2)}
+                                                            </span>
+                                                            {pos.askCapturePct != null && (
+                                                                <span className={`ml-1 font-semibold ${
+                                                                    pos.askCapturePct >= ASK_CAPTURE_CLEAN_PCT ? 'text-emerald-500'
+                                                                    : pos.askCapturePct >= 25               ? 'text-amber-500'
+                                                                    :                                         'text-red-400'
+                                                                }`}>
+                                                                    {pos.askCapturePct.toFixed(0)}%
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {/* Alert: fires when mid ≥ 50%; shows both mid and realistic capture */}
                                                     {pos.profitPct != null && pos.profitPct >= PROFIT_TARGET_PCT && (
-                                                        <div className="text-xs text-amber-500 font-bold">50%+ ✓ close?</div>
+                                                        <div className="text-xs text-amber-500 font-bold mt-0.5">
+                                                            ⚠ {pos.profitPct.toFixed(0)}% mid
+                                                            {pos.askCapturePct != null && (
+                                                                <span className={
+                                                                    pos.askCapturePct >= ASK_CAPTURE_CLEAN_PCT ? 'text-emerald-500'
+                                                                    : pos.askCapturePct >= 25               ? 'text-amber-400'
+                                                                    :                                         'text-red-400'
+                                                                }>
+                                                                    {' / '}{pos.askCapturePct.toFixed(0)}% actual
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
