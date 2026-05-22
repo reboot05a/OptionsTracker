@@ -229,6 +229,57 @@ const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
             }) + ' ET';
         })();
 
+        // Roll suggestion for ROLL_ALERT recommendations
+        const rs = recommendation.recommendation === 'ROLL_ALERT' && recommendation.contract_detail?.roll_suggestion;
+        const rollPanel = rs ? (() => {
+            const net      = rs.net_per_share;
+            const netStr   = net != null
+                ? `${net >= 0 ? '+' : '−'}$${Math.abs(net).toFixed(2)}/sh`
+                : null;
+            const netColor = net == null ? 'text-slate-400'
+                : net >= 0 ? 'text-emerald-500 dark:text-emerald-400'
+                :            'text-red-400';
+            const openStr = rs.open
+                ? `$${rs.open.strike} ${rs.open.expiry?.slice(5) ?? ''} δ${Number(rs.open.delta).toFixed(2)} mid $${Number(rs.open.mid).toFixed(2)}`
+                : rs.open_raw;
+            return (
+                <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-900/10 rounded-md px-3 py-2">
+                    <div className="text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase tracking-wide mb-1.5">
+                        Suggested Roll
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1.5 text-xs">
+                        <div>
+                            <div className="text-slate-400 font-semibold mb-0.5">Close</div>
+                            <div className="font-mono text-slate-600 dark:text-slate-300">{rs.close_raw ?? '—'}</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 font-semibold mb-0.5">Open</div>
+                            <div className="font-mono text-slate-600 dark:text-slate-300">{openStr ?? '—'}</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 font-semibold mb-0.5">Net</div>
+                            <div className={`font-mono font-bold ${netColor}`}>
+                                {netStr ?? '—'}
+                                {net != null && <span className="text-slate-400 font-normal ml-1">({net >= 0 ? 'credit' : 'debit'})</span>}
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-slate-400 font-semibold mb-0.5">New Basis / BE</div>
+                            <div className="font-mono text-slate-600 dark:text-slate-300">
+                                {rs.new_basis != null ? `$${rs.new_basis.toFixed(2)}` : '—'}
+                                {rs.new_breakeven != null && rs.new_breakeven !== rs.new_basis
+                                    ? ` / $${rs.new_breakeven.toFixed(2)}`
+                                    : ''}
+                            </div>
+                        </div>
+                    </div>
+                    {rs.note && (
+                        <div className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 italic">{rs.note}</div>
+                    )}
+                </div>
+            );
+        })() : null;
+
         // Contract detail for WRITE recommendations
         const cd = recommendation.recommendation === 'WRITE' && recommendation.contract_detail;
         const contractChip = cd ? (() => {
@@ -264,6 +315,7 @@ const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
                         {recommendation.rationale}
                     </p>
                 )}
+                {rollPanel}
             </div>
         );
     })();
