@@ -17,6 +17,7 @@ import fundTransactionsRouter from './routes/fundTransactions.js';
 import stocksRouter from './routes/stocks.js';
 import portfolioRouter from './routes/portfolio.js';
 import monitorRouter from './routes/monitor.js';
+import migrateRouter from './routes/migrate.js'; // TEMP — remove after migration
 
 export const createApp = async (rootDir) => {
     // Run startup sequence: schema → fixups → seed
@@ -47,6 +48,7 @@ export const createApp = async (rootDir) => {
     app.use('/api/stocks', stocksRouter);
     app.use('/api/portfolio', portfolioRouter);
     app.use('/api/monitor', monitorRouter);
+    app.use('/api/migrate', migrateRouter); // TEMP — remove after migration
 
     // Catch-all for SPA routing in production
     if (process.env.NODE_ENV === 'production') {
