@@ -18,68 +18,64 @@ const f2  = v => v != null ? Number(v).toFixed(2) : '—';
 const pct = v => v != null ? Number(v).toFixed(1) + '%' : '—';
 const d3  = v => v != null ? Number(v).toFixed(3) : '—';
 
-const CHART_ID = 'roa-tv-chart-embed';
+// ── TradingView embed chart ─────────────────────────────────────────────────
+// Uses TradingView's official Advanced Chart embed widget.
+// Each render creates a fresh script element with the config as textContent,
+// which the TV script reads when it executes.
+function TradingViewChart({ ticker, interval }) {
+    const containerRef = useRef(null);
 
-// ── TradingView loader ──────────────────────────────────────────────────────
-function loadTVScript(cb) {
-    if (window.TradingView) { cb(); return; }
-    if (document.getElementById('roa-tv-script')) {
-        // Already loading — poll
-        const t = setInterval(() => {
-            if (window.TradingView) { clearInterval(t); cb(); }
-        }, 80);
-        return;
-    }
-    const s = document.createElement('script');
-    s.id  = 'roa-tv-script';
-    s.src = 'https://s3.tradingview.com/tv.js';
-    s.async = true;
-    s.onload = cb;
-    document.head.appendChild(s);
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        // Wipe any previous widget
+        container.innerHTML = '';
+
+        // TV embed expects this inner div
+        const inner = document.createElement('div');
+        inner.className = 'tradingview-widget-container__widget';
+        inner.style.cssText = 'width:100%;height:100%;';
+        container.appendChild(inner);
+
+        // Config is passed as the script's textContent
+        const script = document.createElement('script');
+        script.type  = 'text/javascript';
+        script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        script.async = true;
+        script.textContent = JSON.stringify({
+            autosize:            true,
+            symbol:              ticker,
+            interval,
+            timezone:            'America/New_York',
+            theme:               'dark',
+            style:               '1',
+            locale:              'en',
+            allow_symbol_change: false,
+            hide_legend:         false,
+            studies: [
+                'RSI@tv-basicstudies',
+                'MASimple@tv-basicstudies',
+                'BB@tv-basicstudies',
+            ],
+        });
+        container.appendChild(script);
+
+        return () => { container.innerHTML = ''; };
+    }, [ticker, interval]);
+
+    return (
+        <div
+            ref={containerRef}
+            className="tradingview-widget-container"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+    );
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
 export function TickerModal({ isOpen, onClose, ticker, prospect }) {
     const [interval, setIntervalVal] = useState('D');
-    const widgetRef = useRef(null);
-
-    // Build (or rebuild) the TradingView widget whenever ticker or interval changes
-    useEffect(() => {
-        if (!isOpen || !ticker) return;
-
-        const build = () => {
-            const container = document.getElementById(CHART_ID);
-            if (!container || !window.TradingView) return;
-            container.innerHTML = '';   // destroy previous widget
-            widgetRef.current = new window.TradingView.widget({
-                autosize:            true,
-                symbol:              ticker,
-                interval:            interval,
-                timezone:            'America/New_York',
-                theme:               'dark',
-                style:               '1',         // candlestick
-                locale:              'en',
-                hide_side_toolbar:   false,
-                allow_symbol_change: false,
-                save_image:          false,
-                container_id:        CHART_ID,
-                studies: [
-                    { id: 'MASimple@tv-basicstudies', inputs: { length: 20 } },
-                    { id: 'MASimple@tv-basicstudies', inputs: { length: 50 } },
-                    { id: 'RSI@tv-basicstudies' },
-                    { id: 'BB@tv-basicstudies' },
-                ],
-            });
-        };
-
-        loadTVScript(build);
-
-        return () => {
-            // Clear on cleanup so next open starts fresh
-            const container = document.getElementById(CHART_ID);
-            if (container) container.innerHTML = '';
-        };
-    }, [isOpen, ticker, interval]);
 
     // Escape key
     useEffect(() => {
@@ -171,9 +167,6 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                 }
                 .tm-chart {
                     flex: 1; min-width: 0; position: relative;
-                }
-                #${CHART_ID} {
-                    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
                 }
 
                 /* ── Context panel ── */
@@ -284,7 +277,7 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                     <div className="tm-body">
                         {/* Chart */}
                         <div className="tm-chart">
-                            <div id={CHART_ID} />
+                            <TradingViewChart ticker={ticker} interval={interval} />
                         </div>
 
                         {/* Context panel */}
