@@ -132,8 +132,8 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                     letter-spacing: .05em;
                 }
                 .tm-rec {
-                    font-size: 11px; font-weight: 600; letter-spacing: .08em;
-                    text-transform: uppercase; padding: 3px 10px;
+                    font-size: 13px; font-weight: 600; letter-spacing: .08em;
+                    text-transform: uppercase; padding: 4px 12px;
                     border-radius: 2px;
                 }
                 .tm-rec.FAVORABLE { color: #00aaff; border: 1px solid rgba(0,170,255,.3); background: rgba(0,170,255,.08); }
@@ -167,18 +167,18 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
 
                 /* ── Body: chart + panel ── */
                 .tm-body {
-                    display: flex; flex: 1; min-height: 0;
+                    display: flex; flex: 1; min-height: 0; overflow: hidden;
                 }
                 .tm-chart {
-                    flex: 1; min-width: 0;
+                    flex: 1; min-width: 0; position: relative;
                 }
                 #${CHART_ID} {
-                    width: 100%; height: 100%;
+                    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
                 }
 
                 /* ── Context panel ── */
                 .tm-panel {
-                    width: 320px; flex-shrink: 0;
+                    width: 380px; flex-shrink: 0;
                     background: #13161b;
                     border-left: 1px solid #1f2530;
                     overflow-y: auto;
@@ -189,20 +189,20 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                 .tm-panel::-webkit-scrollbar-thumb { background: #2a3342; border-radius: 2px; }
 
                 .tm-section {
-                    padding: 16px 18px;
+                    padding: 18px 20px;
                     border-bottom: 1px solid #1f2530;
                 }
                 .tm-section-title {
-                    font-size: 10px; font-weight: 600; letter-spacing: .12em;
+                    font-size: 13px; font-weight: 600; letter-spacing: .12em;
                     text-transform: uppercase; color: #7a8fa8;
-                    margin-bottom: 12px;
+                    margin-bottom: 14px;
                 }
 
                 /* Status badge in panel */
                 .tm-status-badge {
                     display: inline-block;
-                    font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 4px 12px; border-radius: 2px;
+                    font-size: 14px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 5px 14px; border-radius: 2px;
                 }
                 .tm-status-badge.GO      { background: rgba(31,223,127,.12); color: #1fdf7f;  border: 1px solid rgba(31,223,127,.3); }
                 .tm-status-badge.WATCH   { background: rgba(245,166,35,.12); color: #f5a623;  border: 1px solid rgba(245,166,35,.3); }
@@ -216,36 +216,36 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                 /* Data rows */
                 .tm-row {
                     display: flex; justify-content: space-between; align-items: baseline;
-                    margin-bottom: 9px;
+                    margin-bottom: 11px;
                 }
                 .tm-row:last-child { margin-bottom: 0; }
                 .tm-row-label {
-                    font-size: 11px; color: #7a8fa8; letter-spacing: .05em;
+                    font-size: 14px; color: #7a8fa8; letter-spacing: .05em;
                     text-transform: uppercase; flex-shrink: 0;
                 }
                 .tm-row-val {
-                    font-size: 16px; font-weight: 600; color: #f0f4ff;
+                    font-size: 20px; font-weight: 600; color: #f0f4ff;
                     text-align: right;
                 }
                 .tm-row-val.go     { color: #1fdf7f; }
                 .tm-row-val.watch  { color: #f5a623; }
                 .tm-row-val.bad    { color: #f04040; }
-                .tm-row-val.sub    { color: #b8c8d8; font-size: 14px; font-weight: 400; }
+                .tm-row-val.sub    { color: #b8c8d8; font-size: 17px; font-weight: 400; }
 
                 /* Live best contract */
                 .tm-lc-header {
-                    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+                    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
                 }
                 .tm-lc-badge {
-                    font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 3px 9px; border-radius: 2px;
+                    font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 4px 12px; border-radius: 2px;
                 }
                 .tm-lc-badge.ok      { background: rgba(31,223,127,.12); color: #1fdf7f; border: 1px solid rgba(31,223,127,.3); }
                 .tm-lc-badge.drifted { background: rgba(245,166,35,.12); color: #f5a623; border: 1px solid rgba(245,166,35,.3); }
 
                 .tm-no-data {
-                    font-size: 12px; color: #7a8fa8; font-style: italic;
-                    padding: 40px 18px; text-align: center; line-height: 1.6;
+                    font-size: 14px; color: #7a8fa8; font-style: italic;
+                    padding: 40px 20px; text-align: center; line-height: 1.6;
                 }
             `}</style>
 
@@ -343,7 +343,7 @@ function ProspectPanel({ p, bk }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className={`tm-status-badge ${bk}`}>{bk}</span>
                     {p.captured_at && (
-                        <span style={{ fontSize: 12, color: '#7a8fa8' }}>
+                        <span style={{ fontSize: 15, color: '#7a8fa8' }}>
                             polled {new Date(p.captured_at).toLocaleTimeString('en-US', {
                                 hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York'
                             })} ET
@@ -451,7 +451,7 @@ function ProspectPanel({ p, bk }) {
                             {lc.drift_status}
                         </span>
                         {lc.yield_vs_report != null && (
-                            <span style={{ fontSize: 12, color: '#b8c8d8' }}>
+                            <span style={{ fontSize: 15, color: '#b8c8d8' }}>
                                 {lc.yield_vs_report}% of report yield
                             </span>
                         )}
