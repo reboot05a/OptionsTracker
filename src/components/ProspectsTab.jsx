@@ -431,7 +431,8 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-orig-contract.BROKEN  { color: var(--pt-broken); }
                 .pt-orig-contract.NO_DATA,
                 .pt-orig-contract.PAUSED,
-                .pt-orig-contract.ENTERED { color: var(--pt-sub); }
+                .pt-orig-contract.ENTERED,
+                .pt-orig-contract.SUPERSEDED { color: var(--pt-sub); }
 
                 .pt-alt-contract {
                     display: block; font-size: 15px; font-weight: 600;
@@ -661,6 +662,11 @@ function ProspectCard({ c, isNarrOpen, onToggleNarr, onSetStatus, onEntered, onT
     const overallCls = paused ? 'PAUSED'
         : (c.overall_status || 'NO_DATA').toUpperCase();
 
+    // When a better alternate exists and the original was GO, show it as neutral —
+    // the alternate IS the recommendation, so two greens would be confusing.
+    // WATCH and BROKEN keep their color even with an alternate (still informative).
+    // Computed after lc/isSameContract — but we define origCls after those below.
+
     // Captured time
     const capTime = c.captured_at
         ? new Date(c.captured_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -675,6 +681,12 @@ function ProspectCard({ c, isNarrOpen, onToggleNarr, onSetStatus, onEntered, onT
         && String(lc.expiration_date).slice(0, 10) === String(c.expiration_date).slice(0, 10);
     const showNoAlt = (isSameContract || !hasLC)
         && ['WATCH', 'BROKEN'].includes((c.overall_status || '').toUpperCase());
+
+    // Original contract color: GO is demoted to neutral when a better alternate exists
+    // (avoids "two greens" confusion). WATCH/BROKEN keep their color regardless.
+    const origCls = (overallCls === 'GO' && hasLC && !isSameContract)
+        ? 'SUPERSEDED'
+        : overallCls;
 
     const cardClasses = ['pt-card', bk, isNarrOpen ? 'narr-open' : ''].filter(Boolean).join(' ');
 
@@ -730,7 +742,7 @@ function ProspectCard({ c, isNarrOpen, onToggleNarr, onSetStatus, onEntered, onT
                 {/* Contract — colored by live status; alt contract below if different */}
                 <div className="pt-cell">
                     <span className="pt-lbl">Contract / Live Best</span>
-                    <span className={`pt-orig-contract ${overallCls}`}>
+                    <span className={`pt-orig-contract ${origCls}`}>
                         {strike}  {exp}  {dte}  δ{d3(c.delta)}  {ivStr}
                     </span>
                     {!isSameContract && hasLC && (
