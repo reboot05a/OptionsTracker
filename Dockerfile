@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-RUN npm ci
+RUN npm install
 
 # Copy source files
 COPY . .
@@ -27,7 +27,7 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Remove build dependencies to reduce image size
 RUN apk del python3 make g++
