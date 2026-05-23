@@ -383,7 +383,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 }
                 .pt-c-ticker:hover { color: var(--pt-fav); text-decoration: underline; text-underline-offset: 3px; }
 
-                .pt-c-rec { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; line-height: 1.4; }
+                .pt-c-rec { font-size: 13px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; line-height: 1.4; }
                 .pt-c-rec.FAVORABLE { color: var(--pt-fav); }
                 .pt-c-rec.MARGINAL  { color: var(--pt-mar); }
 
@@ -423,7 +423,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 /* ── Contract cell (colored by live status) ── */
                 .pt-orig-contract {
-                    display: block; font-size: 15px; font-weight: 600;
+                    display: block; font-size: 17px; font-weight: 600;
                     letter-spacing: .03em; white-space: nowrap;
                 }
                 .pt-orig-contract.GO      { color: var(--pt-go); }
@@ -434,18 +434,18 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-orig-contract.ENTERED { color: var(--pt-sub); }
 
                 .pt-alt-contract {
-                    display: block; font-size: 14px; font-weight: 600;
+                    display: block; font-size: 15px; font-weight: 600;
                     color: var(--pt-go); margin-top: 5px; white-space: nowrap;
                 }
                 .pt-no-alt {
-                    display: block; font-size: 12px; color: var(--pt-muted);
+                    display: block; font-size: 13px; color: var(--pt-muted);
                     font-style: italic; margin-top: 4px;
                 }
 
                 .pt-c-status { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
                 .pt-badge {
-                    font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 5px 11px; border-radius: 2px; display: inline-block;
+                    font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 6px 13px; border-radius: 2px; display: inline-block;
                 }
                 .pt-badge.GO      { background: rgba(31,223,127,.12); color: var(--pt-go);     border: 1px solid rgba(31,223,127,.3); }
                 .pt-badge.WATCH   { background: rgba(245,166,35,.12); color: var(--pt-watch);  border: 1px solid rgba(245,166,35,.3); }
@@ -459,8 +459,8 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-badge.drifted { background: rgba(245,166,35,.12); color: var(--pt-watch);  border: 1px solid rgba(245,166,35,.3); }
                 .pt-cap-time { font-size: 13px; color: var(--pt-sub); }
                 .pt-ai-btn {
-                    font-family: inherit; font-size: 12px; color: var(--pt-muted); cursor: pointer;
-                    padding: 4px 10px; border: 1px solid var(--pt-border2);
+                    font-family: inherit; font-size: 13px; color: var(--pt-muted); cursor: pointer;
+                    padding: 5px 12px; border: 1px solid var(--pt-border2);
                     border-radius: 2px; background: transparent; transition: all .15s;
                 }
                 .pt-ai-btn:hover { color: var(--pt-fav); border-color: var(--pt-fav); }
@@ -472,16 +472,16 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                     border-top: 1px solid var(--pt-border);
                     background: rgba(0,0,0,.20); flex-wrap: wrap; gap: 8px;
                 }
-                .pt-metrics-left { display: flex; align-items: center; gap: 10px; }
-                .pt-mval { font-size: 13px; color: var(--pt-sub); letter-spacing: .05em; text-transform: uppercase; }
-                .pt-mval strong { color: var(--pt-text); font-weight: 600; }
-                .pt-msep { color: var(--pt-border2); font-size: 16px; }
+                .pt-metrics-left { display: flex; align-items: center; gap: 12px; }
+                .pt-mval { font-size: 15px; color: var(--pt-sub); letter-spacing: .05em; text-transform: uppercase; }
+                .pt-mval strong { color: var(--pt-text); font-weight: 700; font-size: 16px; }
+                .pt-msep { color: var(--pt-border2); font-size: 18px; }
                 .pt-metrics-actions { display: flex; align-items: center; gap: 8px; }
-                .pt-albl { font-size: 12px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
+                .pt-albl { font-size: 13px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
                 .pt-abtn {
-                    font-family: inherit; font-size: 12px; font-weight: 600;
+                    font-family: inherit; font-size: 13px; font-weight: 600;
                     letter-spacing: .06em; text-transform: uppercase;
-                    padding: 6px 16px; border-radius: 2px;
+                    padding: 7px 18px; border-radius: 2px;
                     border: 1px solid var(--pt-border2); background: transparent;
                     color: var(--pt-sub); cursor: pointer; transition: all .15s;
                 }
