@@ -22,10 +22,16 @@ export const registerMiddleware = (app) => {
         if (isProduction) {
             res.setHeader('Content-Security-Policy', [
                 "default-src 'self'",
-                "script-src 'self' https://s3.tradingview.com",
-                "style-src 'self' 'unsafe-inline'",
+                // 'unsafe-inline' needed for the dark-mode inline script in index.html
+                "script-src 'self' 'unsafe-inline' https://s3.tradingview.com",
+                // Google Fonts stylesheet + unsafe-inline for scoped JSX <style> blocks
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                // Google Fonts actual font files are served from gstatic.com
+                "font-src 'self' https://fonts.gstatic.com",
                 "img-src 'self' data: https://*.tradingview.com",
+                // TradingView widget injects an iframe from these origins
                 "frame-src 'self' https://s3.tradingview.com https://www.tradingview.com",
+                // TradingView live chart uses HTTPS + WebSocket connections
                 "connect-src 'self' https://*.tradingview.com wss://*.tradingview.com",
             ].join('; '));
         }
