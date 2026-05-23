@@ -48,14 +48,19 @@ function TradingViewChart({ ticker, interval }) {
             allow_symbol_change: false,
             hide_legend:         false,
             studies: [
-                // Main chart overlays
                 { id: 'MASimple@tv-basicstudies', inputs: { length: 20 } },  // SMA 20
-                { id: 'MAExp@tv-basicstudies',    inputs: { length: 50 } },  // EMA 50 — different type = different default color
-                { id: 'BB@tv-basicstudies' },                                 // Bollinger Bands
-                // Sub-chart (TV free tier caps at 2 panes)
-                { id: 'RSI@tv-basicstudies' },                                // RSI(14)
-                { id: 'MACD@tv-basicstudies' },                               // MACD
+                { id: 'MAExp@tv-basicstudies',    inputs: { length: 50 } },  // EMA 50
+                { id: 'BB@tv-basicstudies' },
+                { id: 'RSI@tv-basicstudies' },
+                { id: 'MACD@tv-basicstudies' },
             ],
+            // Different MA types have different override key prefixes — this is how TV distinguishes them
+            studies_overrides: {
+                'moving average.plot.color':         '#26C6DA',  // SMA 20 → cyan
+                'moving average.plot.linewidth':     2,
+                'moving average exp.plot.color':     '#FF8C00',  // EMA 50 → orange
+                'moving average exp.plot.linewidth': 2,
+            },
         });
         container.appendChild(script);
 
