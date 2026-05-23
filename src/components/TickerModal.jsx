@@ -47,7 +47,16 @@ function TradingViewChart({ ticker, interval }) {
             locale:              'en',
             allow_symbol_change: false,
             hide_legend:         false,
-            studies: ['RSI@tv-basicstudies', 'MASimple@tv-basicstudies', 'BB@tv-basicstudies'],
+            studies: [
+                // Main chart overlays
+                { id: 'MASimple@tv-basicstudies', inputs: { length: 20 } },  // SMA 20
+                { id: 'MASimple@tv-basicstudies', inputs: { length: 50 } },  // SMA 50
+                'BB@tv-basicstudies',                                          // Bollinger Bands
+                // Sub-chart indicators
+                'RSI@tv-basicstudies',                                         // RSI(14)
+                'MACD@tv-basicstudies',                                        // MACD — momentum/trend
+                'ATR@tv-basicstudies',                                         // ATR — volatility
+            ],
         });
         container.appendChild(script);
 
@@ -172,20 +181,20 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                 .tm-panel::-webkit-scrollbar-thumb { background: #2a3342; border-radius: 2px; }
 
                 .tm-section {
-                    padding: 18px 20px;
+                    padding: 10px 16px;
                     border-bottom: 1px solid #1f2530;
                 }
                 .tm-section-title {
-                    font-size: 13px; font-weight: 600; letter-spacing: .12em;
-                    text-transform: uppercase; color: #7a8fa8;
-                    margin-bottom: 14px;
+                    font-size: 11px; font-weight: 700; letter-spacing: .14em;
+                    text-transform: uppercase; color: #556070;
+                    margin-bottom: 7px;
                 }
 
                 /* Status badge in panel */
                 .tm-status-badge {
                     display: inline-block;
-                    font-size: 14px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 5px 14px; border-radius: 2px;
+                    font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 4px 12px; border-radius: 2px;
                 }
                 .tm-status-badge.GO      { background: rgba(31,223,127,.12); color: #1fdf7f;  border: 1px solid rgba(31,223,127,.3); }
                 .tm-status-badge.WATCH   { background: rgba(245,166,35,.12); color: #f5a623;  border: 1px solid rgba(245,166,35,.3); }
@@ -199,29 +208,29 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                 /* Data rows */
                 .tm-row {
                     display: flex; justify-content: space-between; align-items: baseline;
-                    margin-bottom: 11px;
+                    margin-bottom: 5px;
                 }
                 .tm-row:last-child { margin-bottom: 0; }
                 .tm-row-label {
-                    font-size: 14px; color: #7a8fa8; letter-spacing: .05em;
-                    text-transform: uppercase; flex-shrink: 0;
+                    font-size: 13px; font-weight: 600; color: #c0d0e0;
+                    letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0;
                 }
                 .tm-row-val {
-                    font-size: 20px; font-weight: 600; color: #f0f4ff;
+                    font-size: 18px; font-weight: 600; color: #f0f4ff;
                     text-align: right;
                 }
                 .tm-row-val.go     { color: #1fdf7f; }
                 .tm-row-val.watch  { color: #f5a623; }
                 .tm-row-val.bad    { color: #f04040; }
-                .tm-row-val.sub    { color: #b8c8d8; font-size: 17px; font-weight: 400; }
+                .tm-row-val.sub    { color: #b8c8d8; font-size: 16px; font-weight: 400; }
 
                 /* Live best contract */
                 .tm-lc-header {
-                    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+                    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
                 }
                 .tm-lc-badge {
-                    font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 4px 12px; border-radius: 2px;
+                    font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 3px 10px; border-radius: 2px;
                 }
                 .tm-lc-badge.ok      { background: rgba(31,223,127,.12); color: #1fdf7f; border: 1px solid rgba(31,223,127,.3); }
                 .tm-lc-badge.drifted { background: rgba(245,166,35,.12); color: #f5a623; border: 1px solid rgba(245,166,35,.3); }
