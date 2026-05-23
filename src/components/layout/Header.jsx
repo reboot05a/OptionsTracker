@@ -19,14 +19,9 @@ export const Header = ({
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Activity className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                        Optionable
-                        {version && (
-                            <span className="text-xs font-normal text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
-                                v{version}
-                            </span>
-                        )}
+                        ROA
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Documenting the Wheel Strategy</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Robert's Options Analyzer</p>
                 </div>
 
                 {/* Account Selector */}

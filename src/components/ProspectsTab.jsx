@@ -92,7 +92,8 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
             setLastUpdated(
                 new Date().toLocaleTimeString('en-US', {
                     hour: '2-digit', minute: '2-digit', second: '2-digit',
-                })
+                    timeZone: 'America/New_York',
+                }) + ' ET'
             );
         } catch (e) {
             setError(`Load failed: ${e.message}`);
@@ -180,7 +181,9 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
     }, []);
 
     // ── Derived run-date state ────────────────────────────────────────────
-    const runDate  = data?.run_date ?? null;
+    // Normalize run_date — Postgres TIMESTAMP columns arrive as ISO strings
+    // like "2026-05-21T00:00:00.000Z"; slice to just the date portion.
+    const runDate  = data?.run_date ? String(data.run_date).slice(0, 10) : null;
     const mda      = marketDaysAgo(runDate);
     const isStale  = mda > 2;
     const candidates = data?.candidates ?? [];
@@ -257,11 +260,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-toolbar-left  { display: flex; align-items: center; gap: 14px; }
                 .pt-toolbar-right { display: flex; align-items: center; gap: 10px; }
                 .pt-logo {
-                    font-size: 12px; font-weight: 600; letter-spacing: .14em;
+                    font-size: 13px; font-weight: 600; letter-spacing: .14em;
                     color: var(--pt-go); text-transform: uppercase;
                 }
-                .pt-run-label { font-size: 11px; color: var(--pt-muted); letter-spacing: .06em; }
-                .pt-updated   { font-size: 11px; color: var(--pt-muted); }
+                .pt-run-label { font-size: 13px; color: var(--pt-sub); letter-spacing: .05em; }
+                .pt-updated   { font-size: 12px; color: var(--pt-sub); }
                 .pt-btn {
                     font-family: inherit; font-size: 10px; font-weight: 600;
                     letter-spacing: .08em; text-transform: uppercase;
@@ -281,10 +284,10 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                     display: flex; align-items: baseline; gap: 14px;
                     padding: 10px 20px;
                 }
-                .pt-rdb-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--pt-muted); flex-shrink: 0; }
-                .pt-rdb-date  { font-size: 26px; font-weight: 600; letter-spacing: .03em; color: var(--pt-go); }
+                .pt-rdb-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--pt-muted); flex-shrink: 0; }
+                .pt-rdb-date  { font-size: 28px; font-weight: 600; letter-spacing: .03em; color: var(--pt-go); }
                 .pt-rdb-date.stale { color: var(--pt-broken); }
-                .pt-rdb-age   { font-size: 12px; color: var(--pt-sub); }
+                .pt-rdb-age   { font-size: 14px; color: var(--pt-sub); }
                 .pt-rdb-age.stale { color: var(--pt-watch); font-weight: 600; }
 
                 /* ── Stale banner ── */
@@ -343,15 +346,15 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 /* ── Column headers ── */
                 .pt-col-hdr {
                     display: grid;
-                    grid-template-columns: 70px 100px 80px 200px 120px 180px 170px 160px 110px;
-                    padding: 8px 12px 8px 16px;
-                    font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
-                    color: var(--pt-sub); border-bottom: 1px solid var(--pt-border);
+                    grid-template-columns: 72px 110px 76px 1fr 110px 170px 165px 155px 110px;
+                    padding: 8px 12px 8px 32px;
+                    font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
+                    color: var(--pt-text); border-bottom: 1px solid var(--pt-border);
                     margin-top: 8px;
                 }
 
                 /* ── Cards ── */
-                .pt-cards { display: flex; flex-direction: column; gap: 5px; padding: 8px 20px 24px; }
+                .pt-cards { display: flex; flex-direction: column; gap: 5px; padding: 8px 12px 24px; }
                 .pt-empty { text-align: center; padding: 80px; font-size: 13px; color: var(--pt-muted); }
 
                 .pt-card {
@@ -370,9 +373,9 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 .pt-crow {
                     display: grid;
-                    grid-template-columns: 70px 100px 80px 200px 120px 180px 170px 160px 110px;
+                    grid-template-columns: 72px 110px 76px 1fr 110px 170px 165px 155px 110px;
                     align-items: center;
-                    padding: 12px;
+                    padding: 12px 20px;
                     cursor: pointer; user-select: none;
                 }
                 .pt-crow:hover { background: rgba(255,255,255,.025); }
@@ -451,16 +454,16 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 /* ── Action row ── */
                 .pt-arow {
-                    display: none; align-items: center; gap: 8px;
-                    padding: 9px 16px 11px; border-top: 1px solid var(--pt-border);
+                    display: none; align-items: center; gap: 10px;
+                    padding: 10px 20px 12px; border-top: 1px solid var(--pt-border);
                     background: rgba(0,0,0,.25); flex-wrap: wrap;
                 }
                 .pt-card.open .pt-arow { display: flex; }
-                .pt-albl { font-size: 10px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
+                .pt-albl { font-size: 12px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
                 .pt-abtn {
-                    font-family: inherit; font-size: 10px; font-weight: 600;
-                    letter-spacing: .07em; text-transform: uppercase;
-                    padding: 5px 14px; border-radius: 2px;
+                    font-family: inherit; font-size: 12px; font-weight: 600;
+                    letter-spacing: .06em; text-transform: uppercase;
+                    padding: 7px 18px; border-radius: 2px;
                     border: 1px solid var(--pt-border2); background: transparent;
                     color: var(--pt-sub); cursor: pointer; transition: all .15s;
                 }
@@ -474,11 +477,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 /* ── Live contract panel ── */
                 .pt-lc-panel {
                     display: none; align-items: center; gap: 16px; flex-wrap: wrap;
-                    padding: 10px 16px 11px; border-top: 1px solid var(--pt-border);
-                    background: rgba(0,0,0,.20); font-size: 13px;
+                    padding: 11px 20px 12px; border-top: 1px solid var(--pt-border);
+                    background: rgba(0,0,0,.20); font-size: 14px;
                 }
                 .pt-card.open .pt-lc-panel { display: flex; }
-                .pt-lc-label    { font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--pt-sub); text-transform: uppercase; margin-right: 2px; }
+                .pt-lc-label    { font-size: 12px; font-weight: 600; letter-spacing: .1em; color: var(--pt-sub); text-transform: uppercase; margin-right: 2px; }
                 .pt-lc-contract { color: var(--pt-text); font-weight: 600; letter-spacing: .04em; }
                 .pt-lc-sub      { color: var(--pt-sub); }
                 .pt-lc-prem     { color: var(--pt-go); font-weight: 600; }
@@ -581,7 +584,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 {/* ── Column headers ── */}
                 {candidates.length > 0 && (
-                    <div className="pt-col-hdr" style={{ padding: '8px 12px 8px 36px' }}>
+                    <div className="pt-col-hdr">
                         <div>Ticker</div>
                         <div>Rec</div>
                         <div>Score</div>
@@ -590,7 +593,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                         <div>Call floor → live</div>
                         <div>Contract</div>
                         <div>BE / Cushion / Yield</div>
-                        <div style={{ textAlign: 'right' }}>Status</div>
+                        <div style={{ textAlign: 'right', paddingRight: '4px' }}>Status</div>
                     </div>
                 )}
 
