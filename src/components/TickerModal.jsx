@@ -54,6 +54,12 @@ function TradingViewChart({ ticker, interval }) {
                 { id: 'RSI@tv-basicstudies' },
                 { id: 'MACD@tv-basicstudies' },
             ],
+            // Lowercase indicator UI names required — SMA and EMA are separate types
+            // so each gets its own color. Format: "indicator name.plot name.color"
+            studies_overrides: {
+                'moving average.plot.color':              '#2196F3',  // SMA 20 — blue
+                'moving average exponential.plot.color':  '#FF9800',  // EMA 50 — orange
+            },
         });
         container.appendChild(script);
 
