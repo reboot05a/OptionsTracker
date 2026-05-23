@@ -1,11 +1,12 @@
 import React from 'react';
-import { TrendingUp, Briefcase, Layers } from 'lucide-react';
+import { TrendingUp, Briefcase, Layers, Telescope } from 'lucide-react';
 
 export const TabBar = ({ activeTab, onTabChange }) => {
     const tabs = [
         { id: 'options',   label: 'Options',   icon: TrendingUp },
         { id: 'positions', label: 'Positions',  icon: Layers     },
         { id: 'portfolio', label: 'Portfolio',  icon: Briefcase  },
+        { id: 'prospects', label: 'Prospects',  icon: Telescope  },
     ];
 
     return (

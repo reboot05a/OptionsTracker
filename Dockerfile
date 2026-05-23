@@ -39,13 +39,10 @@ COPY --from=builder /app/dist ./dist
 COPY server.js ./
 COPY server/ ./server/
 
-# Create data directory
-RUN mkdir -p /data
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV DATA_DIR=/data
 
 # Expose port
 EXPOSE 8080

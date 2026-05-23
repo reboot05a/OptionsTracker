@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { API_URL } from '../utils/constants';
 
 const initialFormState = {
@@ -28,6 +28,10 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
     const [rollFromTrade, setRollFromTrade] = useState(null);
     const [rollClosePrice, setRollClosePrice] = useState('');
     const [modalAccountId, setModalAccountId] = useState(null);
+
+    // Stores { ticker, run_date } when opened via openFromProspect.
+    // After a successful save we fire POST /api/prospects/status automatically.
+    const _prospectRef = useRef(null);
 
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
@@ -144,6 +148,39 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setIsModalOpen(true);
     }, []);
 
+    // Opens the TradeModal pre-filled from a cc_daily_candidates prospect row.
+    // After the user saves the trade, status=ENTERED is written back automatically.
+    const openFromProspect = useCallback((candidate, accountId) => {
+        _prospectRef.current = {
+            ticker:   candidate.ticker,
+            run_date: candidate.run_date,
+        };
+        setEditingId(null);
+        setIsRolling(false);
+        setRollFromTrade(null);
+        // Use live contract details when available and valid, fall back to report.
+        const lc = candidate.live_contract;
+        const strike     = lc?.strike          ?? candidate.strike;
+        const expDate    = lc?.expiration_date  ?? candidate.expiration_date;
+        // Entry price: prefer live call_mid (snapshot), then report premium_mid.
+        const entryPrice = candidate.call_mid   ?? candidate.premium_mid ?? '';
+        setModalAccountId(accountId || null);
+        setFormData({
+            ...initialFormState,
+            openedDate:     new Date().toISOString().split('T')[0],
+            ticker:         candidate.ticker,
+            type:           'CC',
+            strike:         strike        ?? '',
+            expirationDate: expDate       ? String(expDate).slice(0, 10) : '',
+            delta:          candidate.delta   ?? '',
+            iv:             candidate.iv      ?? '',
+            entryPrice:     entryPrice !== '' ? String(entryPrice) : '',
+            score:          candidate.score   ?? '',
+            status:         'Open',
+        });
+        setIsModalOpen(true);
+    }, []);
+
     const closeModal = useCallback(() => {
         setIsModalOpen(false);
         setFormData(initialFormState);
@@ -152,6 +189,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setRollFromTrade(null);
         setRollClosePrice('');
         setModalAccountId(null);
+        _prospectRef.current = null;
     }, []);
 
     const saveTrade = useCallback(async (e) => {
@@ -227,6 +265,27 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
             }
 
             await refreshAll();
+
+            // If this trade was opened from a Prospects card, mark it ENTERED.
+            const prospect = _prospectRef.current;
+            if (prospect && !editingId && !isRolling) {
+                try {
+                    await fetch(`${API_URL}/prospects/status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ticker: prospect.ticker,
+                            date:   prospect.run_date,
+                            status: 'ENTERED',
+                        }),
+                    });
+                } catch (prospectErr) {
+                    // Non-fatal — trade is already saved; log and continue.
+                    console.warn('Could not update prospect status:', prospectErr);
+                }
+                _prospectRef.current = null;
+            }
+
             closeModal();
             if (!editingId) setCurrentPage(1);
         } catch (err) {
@@ -286,6 +345,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         duplicateTrade,
         rollTrade,
         openCoveredCall,
+        openFromProspect,
         saveTrade,
         deleteTrade,
         quickCloseTrade

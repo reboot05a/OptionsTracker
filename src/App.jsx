@@ -32,6 +32,7 @@ import {
 } from './components';
 
 import { BuyWriteView } from './components/positions/BuyWriteView';
+import { ProspectsTab } from './components/ProspectsTab';
 import { API_URL } from './utils/constants';
 
 // --- Main Component ---
@@ -286,6 +287,14 @@ export default function App() {
                         accounts={accounts}
                         buyStockTrigger={buyStockTrigger}
                         itemsPerPage={tradesPerPage}
+                    />
+                )}
+
+                {/* ── Prospects View (CC Candidates Dashboard) ── */}
+                {activeTab === 'prospects' && (
+                    <ProspectsTab
+                        onEntered={(candidate, accountId) => tradeForm.openFromProspect(candidate, accountId)}
+                        selectedAccountId={selectedAccountId}
                     />
                 )}
 
