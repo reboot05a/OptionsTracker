@@ -658,8 +658,13 @@ function ProspectCard({ c, isNarrOpen, onToggleNarr, onSetStatus, onEntered, onT
     const dte    = c.dte != null ? `${c.dte}d` : '';
     const ivStr  = c.iv  != null ? `IV ${(Number(c.iv) * 100).toFixed(1)}%` : '';
 
-    // Overall status for contract coloring (separate from badge key)
-    const overallCls = paused ? 'PAUSED'
+    // Overall status for contract coloring (separate from badge key).
+    // For non-pending rows (already BROKEN/ENTERED/WALKED) the poll writes
+    // overall_status=NULL to cc_quote_snapshots because call_mid isn't
+    // fetched, so c.overall_status arrives as null. For BROKEN rows we
+    // fall back to bk (derived from c.status) so the contract shows red.
+    const overallCls = paused  ? 'PAUSED'
+        : bk === 'BROKEN'      ? 'BROKEN'
         : (c.overall_status || 'NO_DATA').toUpperCase();
 
     // When a better alternate exists and the original was GO, show it as neutral —
