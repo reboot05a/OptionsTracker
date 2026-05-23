@@ -20,7 +20,14 @@ export const registerMiddleware = (app) => {
         res.setHeader('X-XSS-Protection', '0');
         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         if (isProduction) {
-            res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'");
+            res.setHeader('Content-Security-Policy', [
+                "default-src 'self'",
+                "script-src 'self' https://s3.tradingview.com",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https://*.tradingview.com",
+                "frame-src 'self' https://s3.tradingview.com https://www.tradingview.com",
+                "connect-src 'self' https://*.tradingview.com wss://*.tradingview.com",
+            ].join('; '));
         }
         next();
     });
