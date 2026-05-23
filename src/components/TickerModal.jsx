@@ -54,13 +54,6 @@ function TradingViewChart({ ticker, interval }) {
                 { id: 'RSI@tv-basicstudies' },
                 { id: 'MACD@tv-basicstudies' },
             ],
-            // Different MA types have different override key prefixes — this is how TV distinguishes them
-            studies_overrides: {
-                'moving average.plot.color':         '#26C6DA',  // SMA 20 → cyan
-                'moving average.plot.linewidth':     2,
-                'moving average exp.plot.color':     '#FF8C00',  // EMA 50 → orange
-                'moving average exp.plot.linewidth': 2,
-            },
         });
         container.appendChild(script);
 
@@ -310,6 +303,10 @@ function badgeKey(c) {
 function ProspectPanel({ p, bk }) {
     const lc = p.live_contract;
     const hasLC = lc && lc.drift_status;
+    const isSameContract = hasLC
+        && lc.strike != null && p.strike != null
+        && Number(lc.strike) === Number(p.strike)
+        && String(lc.expiration_date).slice(0, 10) === String(p.expiration_date).slice(0, 10);
 
     // IV as percentage
     const ivPct = p.iv != null ? (Number(p.iv) * 100).toFixed(1) + '%' : '—';
@@ -452,38 +449,62 @@ function ProspectPanel({ p, bk }) {
                             </span>
                         )}
                     </div>
-                    <div className="tm-row">
-                        <span className="tm-row-label">Strike</span>
-                        <span className="tm-row-val">{lc.strike != null ? `$${f2(lc.strike)}` : '—'}</span>
-                    </div>
-                    <div className="tm-row">
-                        <span className="tm-row-label">Expiration</span>
-                        <span className="tm-row-val sub">
-                            {lc.expiration_date ? String(lc.expiration_date).slice(5,10).replace('-','/') : '—'}
-                            {lc.dte != null ? ` (${lc.dte}d)` : ''}
-                        </span>
-                    </div>
-                    <div className="tm-row">
-                        <span className="tm-row-label">Delta / IV</span>
-                        <span className="tm-row-val sub">
-                            δ{d3(lc.delta)} / {lcIvPct || '—'}
-                        </span>
-                    </div>
-                    <div className="tm-row">
-                        <span className="tm-row-label">Mid</span>
-                        <span className="tm-row-val go">{lc.premium_mid != null ? `$${f2(lc.premium_mid)}` : '—'}</span>
-                    </div>
-                    <div className="tm-row">
-                        <span className="tm-row-label">Yield (ann)</span>
-                        <span className={`tm-row-val ${lc.drift_status.toLowerCase() === 'ok' ? 'go' : 'watch'}`}>
-                            {lc.annualized_yield != null ? `${Number(lc.annualized_yield).toFixed(1)}%` : '—'}
-                        </span>
-                    </div>
-                    {lc.open_interest != null && (
-                        <div className="tm-row">
-                            <span className="tm-row-label">OI</span>
-                            <span className="tm-row-val sub">{lc.open_interest}</span>
-                        </div>
+                    {isSameContract ? (
+                        /* Same contract — confirm original, show live pricing only */
+                        <>
+                            <div className="tm-row">
+                                <span className="tm-row-label" style={{ fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>
+                                    Original contract confirmed best
+                                </span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Live Mid</span>
+                                <span className="tm-row-val go">{lc.premium_mid != null ? `$${f2(lc.premium_mid)}` : '—'}</span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Yield (ann)</span>
+                                <span className="tm-row-val go">
+                                    {lc.annualized_yield != null ? `${Number(lc.annualized_yield).toFixed(1)}%` : '—'}
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        /* Different contract found — show full details */
+                        <>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Strike</span>
+                                <span className="tm-row-val">{lc.strike != null ? `$${f2(lc.strike)}` : '—'}</span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Expiration</span>
+                                <span className="tm-row-val sub">
+                                    {lc.expiration_date ? String(lc.expiration_date).slice(5,10).replace('-','/') : '—'}
+                                    {lc.dte != null ? ` (${lc.dte}d)` : ''}
+                                </span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Delta / IV</span>
+                                <span className="tm-row-val sub">
+                                    δ{d3(lc.delta)} / {lcIvPct || '—'}
+                                </span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Mid</span>
+                                <span className="tm-row-val go">{lc.premium_mid != null ? `$${f2(lc.premium_mid)}` : '—'}</span>
+                            </div>
+                            <div className="tm-row">
+                                <span className="tm-row-label">Yield (ann)</span>
+                                <span className={`tm-row-val ${lc.drift_status.toLowerCase() === 'ok' ? 'go' : 'watch'}`}>
+                                    {lc.annualized_yield != null ? `${Number(lc.annualized_yield).toFixed(1)}%` : '—'}
+                                </span>
+                            </div>
+                            {lc.open_interest != null && (
+                                <div className="tm-row">
+                                    <span className="tm-row-label">OI</span>
+                                    <span className="tm-row-val sub">{lc.open_interest}</span>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             )}

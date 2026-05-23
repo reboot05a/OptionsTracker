@@ -677,6 +677,11 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
     // Live contract panel
     const lc = c.live_contract;
     const hasLC = lc && lc.drift_status;
+    // True when live best is the same strike+expiry as the recommendation
+    const isSameContract = hasLC
+        && lc.strike != null && c.strike != null
+        && Number(lc.strike) === Number(c.strike)
+        && String(lc.expiration_date).slice(0, 10) === String(c.expiration_date).slice(0, 10);
 
     // Card classes
     const cardClasses = [
@@ -789,7 +794,25 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
             {/* ── Live best contract panel ── */}
             <div className="pt-lc-panel">
                 <span className="pt-lc-label">Live Best</span>
-                {hasLC ? (
+                {!hasLC ? (
+                    <span style={{ color: 'var(--pt-muted)', fontStyle: 'italic' }}>
+                        no contract passes guardrails
+                    </span>
+                ) : isSameContract ? (
+                    /* Same contract as recommendation — show as confirmation, not a new discovery */
+                    <>
+                        <span className={`pt-badge ${lc.drift_status.toLowerCase()}`}>{lc.drift_status}</span>
+                        <span className="pt-lc-sub" style={{ fontStyle: 'italic' }}>original contract confirmed best</span>
+                        {lc.premium_mid      != null && <span className="pt-lc-prem">${f2(lc.premium_mid)} live mid</span>}
+                        {lc.annualized_yield != null && (
+                            <span className={`pt-lc-yield ${lc.drift_status.toLowerCase()}`}>
+                                {Number(lc.annualized_yield).toFixed(1)}% ann
+                            </span>
+                        )}
+                        {lc.yield_vs_report  != null && <span className="pt-lc-cmp">{lc.yield_vs_report}% of report yield</span>}
+                    </>
+                ) : (
+                    /* Different contract found — show full details */
                     <>
                         <span className={`pt-badge ${lc.drift_status.toLowerCase()}`}>{lc.drift_status}</span>
                         <span className="pt-lc-contract">
@@ -801,7 +824,7 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
                             {lc.delta != null ? `δ${d3(lc.delta)}` : ''}{' '}
                             {lc.iv    != null ? `IV ${(Number(lc.iv) * 100).toFixed(1)}%` : ''}
                         </span>
-                        {lc.premium_mid     != null && <span className="pt-lc-prem">${f2(lc.premium_mid)}</span>}
+                        {lc.premium_mid      != null && <span className="pt-lc-prem">${f2(lc.premium_mid)}</span>}
                         {lc.annualized_yield != null && (
                             <span className={`pt-lc-yield ${lc.drift_status.toLowerCase()}`}>
                                 {Number(lc.annualized_yield).toFixed(1)}% ann
@@ -810,10 +833,6 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
                         {lc.open_interest    != null && <span className="pt-lc-oi">OI {lc.open_interest}</span>}
                         {lc.yield_vs_report  != null && <span className="pt-lc-cmp">{lc.yield_vs_report}% of report yield</span>}
                     </>
-                ) : (
-                    <span style={{ color: 'var(--pt-muted)', fontStyle: 'italic' }}>
-                        no contract passes guardrails
-                    </span>
                 )}
             </div>
 
