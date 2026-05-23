@@ -19,31 +19,28 @@ const pct = v => v != null ? Number(v).toFixed(1) + '%' : '—';
 const d3  = v => v != null ? Number(v).toFixed(3) : '—';
 
 // ── TradingView embed chart ─────────────────────────────────────────────────
-// Uses TradingView's official Advanced Chart embed widget.
-// Each render creates a fresh script element with the config as textContent,
-// which the TV script reads when it executes.
 function TradingViewChart({ ticker, interval }) {
     const containerRef = useRef(null);
+    const [debugMsg, setDebugMsg] = useState('⏳ Initializing…');
 
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
-        // Wipe any previous widget
+        // Log container dimensions — if 0×0 the widget will never render
+        const rect = container.getBoundingClientRect();
+        const dimStr = `${Math.round(rect.width)}×${Math.round(rect.height)}`;
+        console.log('[TV] container dimensions:', dimStr);
+        setDebugMsg(`Container ${dimStr} — loading TV script…`);
+
         container.innerHTML = '';
 
-        // TV embed expects this inner div
         const inner = document.createElement('div');
         inner.className = 'tradingview-widget-container__widget';
         inner.style.cssText = 'width:100%;height:100%;';
         container.appendChild(inner);
 
-        // Config is passed as the script's textContent
-        const script = document.createElement('script');
-        script.type  = 'text/javascript';
-        script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-        script.async = true;
-        script.textContent = JSON.stringify({
+        const config = {
             autosize:            true,
             symbol:              ticker,
             interval,
@@ -53,12 +50,38 @@ function TradingViewChart({ ticker, interval }) {
             locale:              'en',
             allow_symbol_change: false,
             hide_legend:         false,
-            studies: [
-                'RSI@tv-basicstudies',
-                'MASimple@tv-basicstudies',
-                'BB@tv-basicstudies',
-            ],
-        });
+            studies: ['RSI@tv-basicstudies', 'MASimple@tv-basicstudies', 'BB@tv-basicstudies'],
+        };
+        console.log('[TV] config:', config);
+
+        const script = document.createElement('script');
+        script.type  = 'text/javascript';
+        script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        script.async = true;
+        script.textContent = JSON.stringify(config);
+
+        script.onload = () => {
+            console.log('[TV] script loaded OK');
+            setDebugMsg('Script loaded — waiting for widget…');
+            // Give TV 3s to inject its iframe, then report what's in the container
+            setTimeout(() => {
+                const iframe = container.querySelector('iframe');
+                if (iframe) {
+                    console.log('[TV] ✅ iframe injected:', iframe.src.slice(0, 80));
+                    setDebugMsg(''); // clear — chart is visible
+                } else {
+                    const html = container.innerHTML.slice(0, 200);
+                    console.warn('[TV] ⚠️ no iframe after 3s. container HTML:', html);
+                    setDebugMsg(`Script loaded but no chart injected.\nContainer: ${html || '(empty)'}`);
+                }
+            }, 3000);
+        };
+
+        script.onerror = (e) => {
+            console.error('[TV] ❌ script load failed:', e);
+            setDebugMsg('❌ TradingView script failed to load.\nCheck Network tab for blocked request.');
+        };
+
         container.appendChild(script);
 
         return () => { container.innerHTML = ''; };
@@ -69,7 +92,20 @@ function TradingViewChart({ ticker, interval }) {
             ref={containerRef}
             className="tradingview-widget-container"
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
+        >
+            {debugMsg && (
+                <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%,-50%)',
+                    color: '#7a8fa8', fontSize: 13, fontFamily: 'monospace',
+                    background: 'rgba(13,15,18,.85)', padding: '14px 22px',
+                    border: '1px solid #2a3342', borderRadius: 4,
+                    whiteSpace: 'pre-wrap', textAlign: 'center',
+                    maxWidth: '80%', lineHeight: 1.7,
+                    pointerEvents: 'none', zIndex: 10,
+                }}>{debugMsg}</div>
+            )}
+        </div>
     );
 }
 
