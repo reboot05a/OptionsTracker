@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { db, dbPath } from '../db/connection.js';
+import { pool } from '../db/connection.js';
 import { apiResponse } from '../utils/response.js';
 
 const router = Router();
 
 // GET all settings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const settings = db.prepare('SELECT * FROM settings').all();
-        const settingsObj = Object.fromEntries(settings.map(s => [s.key, s.value]));
+        const result = await pool.query('SELECT * FROM roa_settings');
+        const settingsObj = Object.fromEntries(result.rows.map(s => [s.key, s.value]));
         apiResponse.success(res, settingsObj);
     } catch (error) {
         console.error('Error fetching settings:', error);
@@ -17,15 +17,18 @@ router.get('/', (req, res) => {
 });
 
 // PUT update setting
-router.put('/:key', (req, res) => {
+router.put('/:key', async (req, res) => {
     try {
         const { value } = req.body;
         const key = req.params.key;
 
-        db.prepare(`
-            INSERT OR REPLACE INTO settings (key, value, updatedAt)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-        `).run(key, value);
+        await pool.query(`
+            INSERT INTO roa_settings (key, value, "updatedAt")
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (key) DO UPDATE SET
+                value       = EXCLUDED.value,
+                "updatedAt" = NOW()
+        `, [key, value]);
 
         apiResponse.success(res, { key, value });
     } catch (error) {
@@ -34,16 +37,7 @@ router.put('/:key', (req, res) => {
     }
 });
 
-// GET export database
-router.get('/export-db', (req, res) => {
-    try {
-        db.pragma('wal_checkpoint(TRUNCATE)');
-        const timestamp = new Date().toISOString().slice(0, 10);
-        res.download(dbPath, `optionable-${timestamp}.db`);
-    } catch (error) {
-        console.error('Error exporting database:', error);
-        apiResponse.error(res, 'Failed to export database');
-    }
-});
+// NOTE: The SQLite export-db endpoint has been removed — not applicable to Postgres.
+// Database backups are handled by Railway's native Postgres backup infrastructure.
 
 export default router;

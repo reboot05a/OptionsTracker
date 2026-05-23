@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { pool } from '../db/connection.js';
 import { toCents, toDollars, positionToApi } from '../utils/conversions.js';
 import { apiResponse } from '../utils/response.js';
 import { validatePosition } from '../utils/validation.js';
@@ -7,29 +7,42 @@ import { validatePosition } from '../utils/validation.js';
 const router = Router();
 
 // GET positions summary (realized + unrealized gains) - MUST be before :id route
-router.get('/summary', (req, res) => {
+router.get('/summary', async (req, res) => {
     try {
         const { accountId } = req.query;
-        const acctFilter = accountId ? 'AND accountId = ?' : '';
-        const acctParams = accountId ? [Number(accountId)] : [];
 
-        // Realized gains from closed positions
-        const realizedStats = db.prepare(`
-            SELECT
-                COALESCE(SUM(capitalGainLoss), 0) as realizedGainLoss,
-                COUNT(*) as closedPositions
-            FROM positions
-            WHERE soldDate IS NOT NULL ${acctFilter}
-        `).get(...acctParams);
+        const conditions = ['soldDate IS NOT NULL'];
+        const openConditions = ['soldDate IS NULL'];
+        const params = [];
+        let paramIdx = 1;
 
-        // Open positions for unrealized calculation
-        const openPositions = db.prepare(`
-            SELECT * FROM positions WHERE soldDate IS NULL ${acctFilter}
-        `).all(...acctParams);
+        if (accountId) {
+            conditions.push(`"accountId" = $${paramIdx}`);
+            openConditions.push(`"accountId" = $${paramIdx}`);
+            params.push(Number(accountId));
+            paramIdx++;
+        }
+
+        const [realizedResult, openResult] = await Promise.all([
+            pool.query(`
+                SELECT
+                    COALESCE(SUM("capitalGainLoss"), 0) AS "realizedGainLoss",
+                    COUNT(*) AS "closedPositions"
+                FROM roa_positions
+                WHERE ${conditions.join(' AND ')}
+            `, params),
+            pool.query(`
+                SELECT * FROM roa_positions
+                WHERE ${openConditions.join(' AND ')}
+            `, params),
+        ]);
+
+        const stats = realizedResult.rows[0];
+        const openPositions = openResult.rows;
 
         apiResponse.success(res, {
-            realizedGainLoss: toDollars(realizedStats.realizedGainLoss),
-            closedPositions: realizedStats.closedPositions,
+            realizedGainLoss: toDollars(parseInt(stats.realizedGainLoss)),
+            closedPositions: parseInt(stats.closedPositions),
             openPositions: openPositions.length,
             openPositionsList: openPositions.map(positionToApi)
         });
@@ -40,29 +53,32 @@ router.get('/summary', (req, res) => {
 });
 
 // GET all positions
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { status, accountId } = req.query;
 
         const conditions = [];
         const params = [];
+        let paramIdx = 1;
 
         if (accountId) {
-            conditions.push('accountId = ?');
+            conditions.push(`"accountId" = $${paramIdx++}`);
             params.push(Number(accountId));
         }
 
         if (status === 'open') {
-            conditions.push('soldDate IS NULL');
+            conditions.push('"soldDate" IS NULL');
         } else if (status === 'closed') {
-            conditions.push('soldDate IS NOT NULL');
+            conditions.push('"soldDate" IS NOT NULL');
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        const query = `SELECT * FROM positions ${whereClause} ORDER BY acquiredDate DESC`;
+        const result = await pool.query(
+            `SELECT * FROM roa_positions ${whereClause} ORDER BY "acquiredDate" DESC`,
+            params
+        );
 
-        const positions = db.prepare(query).all(...params);
-        apiResponse.success(res, positions.map(positionToApi));
+        apiResponse.success(res, result.rows.map(positionToApi));
     } catch (error) {
         console.error('Error fetching positions:', error);
         apiResponse.error(res, 'Failed to fetch positions');
@@ -70,9 +86,10 @@ router.get('/', (req, res) => {
 });
 
 // GET single position
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const position = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
+        const result = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [req.params.id]);
+        const position = result.rows[0];
         if (!position) {
             return apiResponse.error(res, 'Position not found', 404);
         }
@@ -84,32 +101,31 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create position (manual entry or from assignment)
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const { ticker, shares, costBasis, acquiredDate, acquiredFromTradeId, accountId } = req.body;
 
-        // Validate input
         const validationErrors = validatePosition(req.body, false);
         if (validationErrors.length > 0) {
             return apiResponse.error(res, 'Validation failed', 400, validationErrors);
         }
 
-        const stmt = db.prepare(`
-            INSERT INTO positions (ticker, shares, costBasis, acquiredDate, acquiredFromTradeId, accountId)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
-        const result = stmt.run(
+        const insertResult = await pool.query(`
+            INSERT INTO roa_positions (ticker, shares, "costBasis", "acquiredDate", "acquiredFromTradeId", "accountId")
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        `, [
             ticker.toUpperCase(),
             shares,
             toCents(costBasis),
             acquiredDate,
             acquiredFromTradeId || null,
-            accountId || null
-        );
+            accountId || null,
+        ]);
 
-        const newPosition = db.prepare('SELECT * FROM positions WHERE id = ?').get(result.lastInsertRowid);
-        apiResponse.created(res, positionToApi(newPosition));
+        const newId = insertResult.rows[0].id;
+        const fetchResult = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [newId]);
+        apiResponse.created(res, positionToApi(fetchResult.rows[0]));
     } catch (error) {
         console.error('Error creating position:', error);
         apiResponse.error(res, 'Failed to create position');
@@ -117,11 +133,12 @@ router.post('/', (req, res) => {
 });
 
 // PUT update/close/reopen position (supports partial sells and reopen)
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const { soldDate, salePrice, soldViaTradeId, reopen } = req.body;
 
-        const position = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
+        const posResult = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [req.params.id]);
+        const position = posResult.rows[0];
         if (!position) {
             return apiResponse.error(res, 'Position not found', 404);
         }
@@ -132,17 +149,17 @@ router.put('/:id', (req, res) => {
                 return apiResponse.error(res, 'Position is already open', 400);
             }
 
-            db.prepare(`
-                UPDATE positions
-                SET soldDate = NULL, salePrice = NULL, soldViaTradeId = NULL, capitalGainLoss = NULL, updatedAt = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `).run(req.params.id);
+            await pool.query(`
+                UPDATE roa_positions
+                SET "soldDate" = NULL, "salePrice" = NULL, "soldViaTradeId" = NULL,
+                    "capitalGainLoss" = NULL, "updatedAt" = NOW()
+                WHERE id = $1
+            `, [req.params.id]);
 
-            const reopened = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
-            return apiResponse.success(res, positionToApi(reopened));
+            const reopenedResult = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [req.params.id]);
+            return apiResponse.success(res, positionToApi(reopenedResult.rows[0]));
         }
 
-        // Validate input
         const validationErrors = validatePosition(req.body, true);
         if (validationErrors.length > 0) {
             return apiResponse.error(res, 'Validation failed', 400, validationErrors);
@@ -159,17 +176,25 @@ router.put('/:id', (req, res) => {
             const costBasisDollars = toDollars(position.costBasis);
             const capitalGainLoss = (salePrice - costBasisDollars) * sharesToSell;
 
-            const partialSellTx = db.transaction(() => {
+            const client = await pool.connect();
+            let soldId;
+            try {
+                await client.query('BEGIN');
+
                 // Reduce shares on original position
-                db.prepare(`
-                    UPDATE positions SET shares = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?
-                `).run(position.shares - sharesToSell, position.id);
+                await client.query(
+                    'UPDATE roa_positions SET shares = $1, "updatedAt" = NOW() WHERE id = $2',
+                    [position.shares - sharesToSell, position.id]
+                );
 
                 // Create new closed position for the sold portion
-                const result = db.prepare(`
-                    INSERT INTO positions (ticker, shares, costBasis, acquiredDate, acquiredFromTradeId, accountId, soldDate, salePrice, soldViaTradeId, capitalGainLoss)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `).run(
+                const insertResult = await client.query(`
+                    INSERT INTO roa_positions
+                        (ticker, shares, "costBasis", "acquiredDate", "acquiredFromTradeId", "accountId",
+                         "soldDate", "salePrice", "soldViaTradeId", "capitalGainLoss")
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    RETURNING id
+                `, [
                     position.ticker,
                     sharesToSell,
                     position.costBasis,
@@ -179,31 +204,35 @@ router.put('/:id', (req, res) => {
                     soldDate,
                     toCents(salePrice),
                     soldViaTradeId || null,
-                    toCents(capitalGainLoss)
-                );
+                    toCents(capitalGainLoss),
+                ]);
 
-                return result.lastInsertRowid;
-            });
+                soldId = insertResult.rows[0].id;
+                await client.query('COMMIT');
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
 
-            const soldId = partialSellTx();
-            const soldPosition = db.prepare('SELECT * FROM positions WHERE id = ?').get(soldId);
-            return apiResponse.success(res, positionToApi(soldPosition));
+            const soldResult = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [soldId]);
+            return apiResponse.success(res, positionToApi(soldResult.rows[0]));
         }
 
         // Full sell: update in place
         const costBasisDollars = toDollars(position.costBasis);
         const capitalGainLoss = (salePrice - costBasisDollars) * position.shares;
 
-        const stmt = db.prepare(`
-            UPDATE positions
-            SET soldDate = ?, salePrice = ?, soldViaTradeId = ?, capitalGainLoss = ?, updatedAt = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `);
+        await pool.query(`
+            UPDATE roa_positions
+            SET "soldDate" = $1, "salePrice" = $2, "soldViaTradeId" = $3,
+                "capitalGainLoss" = $4, "updatedAt" = NOW()
+            WHERE id = $5
+        `, [soldDate, toCents(salePrice), soldViaTradeId || null, toCents(capitalGainLoss), req.params.id]);
 
-        stmt.run(soldDate, toCents(salePrice), soldViaTradeId || null, toCents(capitalGainLoss), req.params.id);
-
-        const updatedPosition = db.prepare('SELECT * FROM positions WHERE id = ?').get(req.params.id);
-        apiResponse.success(res, positionToApi(updatedPosition));
+        const updatedResult = await pool.query('SELECT * FROM roa_positions WHERE id = $1', [req.params.id]);
+        apiResponse.success(res, positionToApi(updatedResult.rows[0]));
     } catch (error) {
         console.error('Error updating position:', error);
         apiResponse.error(res, 'Failed to update position');
@@ -211,10 +240,10 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE position
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM positions WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const result = await pool.query('DELETE FROM roa_positions WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) {
             return apiResponse.error(res, 'Position not found', 404);
         }
         apiResponse.success(res, { deleted: true, id: parseInt(req.params.id) });

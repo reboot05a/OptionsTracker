@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { pool } from '../db/connection.js';
 import { toCents, toDollars, stockToApi } from '../utils/conversions.js';
 import { apiResponse } from '../utils/response.js';
 import { validateStock } from '../utils/validation.js';
@@ -7,30 +7,32 @@ import { validateStock } from '../utils/validation.js';
 const router = Router();
 
 // GET all stocks
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { accountId, status } = req.query;
 
         const conditions = [];
         const params = [];
+        let paramIdx = 1;
 
         if (accountId) {
-            conditions.push('accountId = ?');
+            conditions.push(`"accountId" = $${paramIdx++}`);
             params.push(Number(accountId));
         }
 
         if (status === 'open') {
-            conditions.push('soldDate IS NULL');
+            conditions.push('"soldDate" IS NULL');
         } else if (status === 'closed') {
-            conditions.push('soldDate IS NOT NULL');
+            conditions.push('"soldDate" IS NOT NULL');
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        const stocks = db.prepare(
-            `SELECT * FROM stocks ${whereClause} ORDER BY acquiredDate DESC, id DESC`
-        ).all(...params);
+        const result = await pool.query(
+            `SELECT * FROM roa_stocks ${whereClause} ORDER BY "acquiredDate" DESC, id DESC`,
+            params
+        );
 
-        apiResponse.success(res, stocks.map(stockToApi));
+        apiResponse.success(res, result.rows.map(stockToApi));
     } catch (error) {
         console.error('Error fetching stocks:', error);
         apiResponse.error(res, 'Failed to fetch stocks');
@@ -38,9 +40,10 @@ router.get('/', (req, res) => {
 });
 
 // GET single stock
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const stock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(req.params.id);
+        const result = await pool.query('SELECT * FROM roa_stocks WHERE id = $1', [req.params.id]);
+        const stock = result.rows[0];
         if (!stock) {
             return apiResponse.error(res, 'Stock not found', 404);
         }
@@ -52,7 +55,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create stock
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const validationErrors = validateStock(req.body, false);
         if (validationErrors.length > 0) {
@@ -61,20 +64,22 @@ router.post('/', (req, res) => {
 
         const { accountId, ticker, shares, costBasis, acquiredDate, notes } = req.body;
 
-        const result = db.prepare(`
-            INSERT INTO stocks (accountId, ticker, shares, costBasis, acquiredDate, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
+        const insertResult = await pool.query(`
+            INSERT INTO roa_stocks ("accountId", ticker, shares, "costBasis", "acquiredDate", notes)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        `, [
             Number(accountId),
             ticker.toUpperCase(),
             Number(shares),
             toCents(costBasis),
             acquiredDate,
-            notes || null
-        );
+            notes || null,
+        ]);
 
-        const stock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(result.lastInsertRowid);
-        apiResponse.created(res, stockToApi(stock));
+        const newId = insertResult.rows[0].id;
+        const fetchResult = await pool.query('SELECT * FROM roa_stocks WHERE id = $1', [newId]);
+        apiResponse.created(res, stockToApi(fetchResult.rows[0]));
     } catch (error) {
         console.error('Error creating stock:', error);
         apiResponse.error(res, 'Failed to create stock');
@@ -82,9 +87,10 @@ router.post('/', (req, res) => {
 });
 
 // PUT update/sell stock (supports partial sells)
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
-        const current = db.prepare('SELECT * FROM stocks WHERE id = ?').get(req.params.id);
+        const currentResult = await pool.query('SELECT * FROM roa_stocks WHERE id = $1', [req.params.id]);
+        const current = currentResult.rows[0];
         if (!current) {
             return apiResponse.error(res, 'Stock not found', 404);
         }
@@ -94,8 +100,10 @@ router.put('/:id', (req, res) => {
             return apiResponse.error(res, 'Validation failed', 400, validationErrors);
         }
 
-        const soldDate = req.body.soldDate !== undefined ? req.body.soldDate : current.soldDate;
-        const salePrice = req.body.salePrice !== undefined ? (req.body.salePrice !== null ? toCents(req.body.salePrice) : null) : current.salePrice;
+        const soldDate  = req.body.soldDate !== undefined ? req.body.soldDate : current.soldDate;
+        const salePrice = req.body.salePrice !== undefined
+            ? (req.body.salePrice !== null ? toCents(req.body.salePrice) : null)
+            : current.salePrice;
         const sharesToSell = req.body.sharesToSell !== undefined ? Number(req.body.sharesToSell) : null;
 
         // Partial sell: split the lot
@@ -106,19 +114,27 @@ router.put('/:id', (req, res) => {
 
             const costBasisDollars = toDollars(current.costBasis);
             const salePriceDollars = toDollars(salePrice);
-            const capitalGainLoss = toCents((salePriceDollars - costBasisDollars) * sharesToSell);
+            const capitalGainLoss  = toCents((salePriceDollars - costBasisDollars) * sharesToSell);
 
-            const partialSellTx = db.transaction(() => {
+            const client = await pool.connect();
+            let soldId;
+            try {
+                await client.query('BEGIN');
+
                 // Reduce shares on original lot
-                db.prepare(`
-                    UPDATE stocks SET shares = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?
-                `).run(current.shares - sharesToSell, current.id);
+                await client.query(
+                    'UPDATE roa_stocks SET shares = $1, "updatedAt" = NOW() WHERE id = $2',
+                    [current.shares - sharesToSell, current.id]
+                );
 
                 // Create new sold record for the sold portion
-                const result = db.prepare(`
-                    INSERT INTO stocks (accountId, ticker, shares, costBasis, acquiredDate, soldDate, salePrice, capitalGainLoss, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `).run(
+                const insertResult = await client.query(`
+                    INSERT INTO roa_stocks
+                        ("accountId", ticker, shares, "costBasis", "acquiredDate",
+                         "soldDate", "salePrice", "capitalGainLoss", notes)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    RETURNING id
+                `, [
                     current.accountId,
                     current.ticker,
                     sharesToSell,
@@ -127,25 +143,29 @@ router.put('/:id', (req, res) => {
                     soldDate,
                     salePrice,
                     capitalGainLoss,
-                    current.notes
-                );
+                    current.notes,
+                ]);
 
-                return result.lastInsertRowid;
-            });
+                soldId = insertResult.rows[0].id;
+                await client.query('COMMIT');
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
 
-            const soldId = partialSellTx();
-            const soldStock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(soldId);
-            return apiResponse.success(res, stockToApi(soldStock));
+            const soldResult = await pool.query('SELECT * FROM roa_stocks WHERE id = $1', [soldId]);
+            return apiResponse.success(res, stockToApi(soldResult.rows[0]));
         }
 
         // Full sell or regular update
-        const ticker = req.body.ticker ? req.body.ticker.toUpperCase() : current.ticker;
-        const shares = req.body.shares !== undefined ? Number(req.body.shares) : current.shares;
-        const costBasis = req.body.costBasis !== undefined ? toCents(req.body.costBasis) : current.costBasis;
+        const ticker       = req.body.ticker ? req.body.ticker.toUpperCase() : current.ticker;
+        const shares       = req.body.shares !== undefined ? Number(req.body.shares) : current.shares;
+        const costBasis    = req.body.costBasis !== undefined ? toCents(req.body.costBasis) : current.costBasis;
         const acquiredDate = req.body.acquiredDate ?? current.acquiredDate;
-        const notes = req.body.notes !== undefined ? req.body.notes : current.notes;
+        const notes        = req.body.notes !== undefined ? req.body.notes : current.notes;
 
-        // Compute capital gain/loss when selling
         let capitalGainLoss = current.capitalGainLoss;
         if (soldDate && salePrice !== null) {
             const costBasisDollars = toDollars(costBasis);
@@ -153,14 +173,16 @@ router.put('/:id', (req, res) => {
             capitalGainLoss = toCents((salePriceDollars - costBasisDollars) * shares);
         }
 
-        db.prepare(`
-            UPDATE stocks
-            SET ticker = ?, shares = ?, costBasis = ?, acquiredDate = ?, soldDate = ?, salePrice = ?, capitalGainLoss = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `).run(ticker, shares, costBasis, acquiredDate, soldDate, salePrice, capitalGainLoss, notes, req.params.id);
+        await pool.query(`
+            UPDATE roa_stocks
+            SET ticker = $1, shares = $2, "costBasis" = $3, "acquiredDate" = $4,
+                "soldDate" = $5, "salePrice" = $6, "capitalGainLoss" = $7,
+                notes = $8, "updatedAt" = NOW()
+            WHERE id = $9
+        `, [ticker, shares, costBasis, acquiredDate, soldDate, salePrice, capitalGainLoss, notes, req.params.id]);
 
-        const stock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(req.params.id);
-        apiResponse.success(res, stockToApi(stock));
+        const fetchResult = await pool.query('SELECT * FROM roa_stocks WHERE id = $1', [req.params.id]);
+        apiResponse.success(res, stockToApi(fetchResult.rows[0]));
     } catch (error) {
         console.error('Error updating stock:', error);
         apiResponse.error(res, 'Failed to update stock');
@@ -168,10 +190,10 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE stock
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM stocks WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const result = await pool.query('DELETE FROM roa_stocks WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) {
             return apiResponse.error(res, 'Stock not found', 404);
         }
         apiResponse.success(res, { deleted: true, id: parseInt(req.params.id) });

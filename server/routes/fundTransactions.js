@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { pool } from '../db/connection.js';
 import { toCents, fundTransactionToApi } from '../utils/conversions.js';
 import { apiResponse } from '../utils/response.js';
 import { validateFundTransaction } from '../utils/validation.js';
@@ -7,29 +7,31 @@ import { validateFundTransaction } from '../utils/validation.js';
 const router = Router();
 
 // GET all fund transactions
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { accountId, type } = req.query;
 
         const conditions = [];
         const params = [];
+        let paramIdx = 1;
 
         if (accountId) {
-            conditions.push('accountId = ?');
+            conditions.push(`"accountId" = $${paramIdx++}`);
             params.push(Number(accountId));
         }
 
         if (type) {
-            conditions.push('type = ?');
+            conditions.push(`type = $${paramIdx++}`);
             params.push(type);
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        const transactions = db.prepare(
-            `SELECT * FROM fund_transactions ${whereClause} ORDER BY date DESC, id DESC`
-        ).all(...params);
+        const result = await pool.query(
+            `SELECT * FROM roa_fund_transactions ${whereClause} ORDER BY date DESC, id DESC`,
+            params
+        );
 
-        apiResponse.success(res, transactions.map(fundTransactionToApi));
+        apiResponse.success(res, result.rows.map(fundTransactionToApi));
     } catch (error) {
         console.error('Error fetching fund transactions:', error);
         apiResponse.error(res, 'Failed to fetch fund transactions');
@@ -37,9 +39,10 @@ router.get('/', (req, res) => {
 });
 
 // GET single fund transaction
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const txn = db.prepare('SELECT * FROM fund_transactions WHERE id = ?').get(req.params.id);
+        const result = await pool.query('SELECT * FROM roa_fund_transactions WHERE id = $1', [req.params.id]);
+        const txn = result.rows[0];
         if (!txn) {
             return apiResponse.error(res, 'Fund transaction not found', 404);
         }
@@ -51,7 +54,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create fund transaction
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const validationErrors = validateFundTransaction(req.body, false);
         if (validationErrors.length > 0) {
@@ -60,19 +63,21 @@ router.post('/', (req, res) => {
 
         const { accountId, type, amount, date, description } = req.body;
 
-        const result = db.prepare(`
-            INSERT INTO fund_transactions (accountId, type, amount, date, description)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(
+        const insertResult = await pool.query(`
+            INSERT INTO roa_fund_transactions ("accountId", type, amount, date, description)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+        `, [
             Number(accountId),
             type,
             toCents(amount),
             date,
-            description || null
-        );
+            description || null,
+        ]);
 
-        const txn = db.prepare('SELECT * FROM fund_transactions WHERE id = ?').get(result.lastInsertRowid);
-        apiResponse.created(res, fundTransactionToApi(txn));
+        const newId = insertResult.rows[0].id;
+        const fetchResult = await pool.query('SELECT * FROM roa_fund_transactions WHERE id = $1', [newId]);
+        apiResponse.created(res, fundTransactionToApi(fetchResult.rows[0]));
     } catch (error) {
         console.error('Error creating fund transaction:', error);
         apiResponse.error(res, 'Failed to create fund transaction');
@@ -80,9 +85,10 @@ router.post('/', (req, res) => {
 });
 
 // PUT update fund transaction
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
-        const current = db.prepare('SELECT * FROM fund_transactions WHERE id = ?').get(req.params.id);
+        const currentResult = await pool.query('SELECT * FROM roa_fund_transactions WHERE id = $1', [req.params.id]);
+        const current = currentResult.rows[0];
         if (!current) {
             return apiResponse.error(res, 'Fund transaction not found', 404);
         }
@@ -92,19 +98,19 @@ router.put('/:id', (req, res) => {
             return apiResponse.error(res, 'Validation failed', 400, validationErrors);
         }
 
-        const type = req.body.type ?? current.type;
-        const amount = req.body.amount !== undefined ? toCents(req.body.amount) : current.amount;
-        const date = req.body.date ?? current.date;
+        const type        = req.body.type ?? current.type;
+        const amount      = req.body.amount !== undefined ? toCents(req.body.amount) : current.amount;
+        const date        = req.body.date ?? current.date;
         const description = req.body.description !== undefined ? req.body.description : current.description;
 
-        db.prepare(`
-            UPDATE fund_transactions
-            SET type = ?, amount = ?, date = ?, description = ?, updatedAt = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `).run(type, amount, date, description, req.params.id);
+        await pool.query(`
+            UPDATE roa_fund_transactions
+            SET type = $1, amount = $2, date = $3, description = $4, "updatedAt" = NOW()
+            WHERE id = $5
+        `, [type, amount, date, description, req.params.id]);
 
-        const txn = db.prepare('SELECT * FROM fund_transactions WHERE id = ?').get(req.params.id);
-        apiResponse.success(res, fundTransactionToApi(txn));
+        const fetchResult = await pool.query('SELECT * FROM roa_fund_transactions WHERE id = $1', [req.params.id]);
+        apiResponse.success(res, fundTransactionToApi(fetchResult.rows[0]));
     } catch (error) {
         console.error('Error updating fund transaction:', error);
         apiResponse.error(res, 'Failed to update fund transaction');
@@ -112,10 +118,10 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE fund transaction
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM fund_transactions WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const result = await pool.query('DELETE FROM roa_fund_transactions WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) {
             return apiResponse.error(res, 'Fund transaction not found', 404);
         }
         apiResponse.success(res, { deleted: true, id: parseInt(req.params.id) });

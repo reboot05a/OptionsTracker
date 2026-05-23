@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { pool } from '../db/connection.js';
 import { toCents, toDollars } from '../utils/conversions.js';
 import { apiResponse } from '../utils/response.js';
 import YahooFinance from 'yahoo-finance2';
@@ -10,9 +10,10 @@ const router = Router();
 // Cache TTL: 1 hour
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
+// pg returns TIMESTAMPTZ as a proper Date object — no need to append 'Z'
 const isCacheFresh = (updatedAt) => {
     if (!updatedAt) return false;
-    return (Date.now() - new Date(updatedAt + 'Z').getTime()) < CACHE_TTL_MS;
+    return (Date.now() - new Date(updatedAt).getTime()) < CACHE_TTL_MS;
 };
 
 // In-memory cache for option prices (no DB table)
@@ -33,15 +34,46 @@ const evictStaleOptionCache = () => {
     }
 };
 
+// Helper: upsert a price into roa_price_cache
+const upsertPrice = (ticker, price, change, changePercent, name) =>
+    pool.query(`
+        INSERT INTO roa_price_cache (ticker, price, change, "changePercent", name, "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (ticker) DO UPDATE SET
+            price           = EXCLUDED.price,
+            change          = EXCLUDED.change,
+            "changePercent" = EXCLUDED."changePercent",
+            name            = EXCLUDED.name,
+            "updatedAt"     = NOW()
+    `, [ticker, toCents(price), toCents(change), changePercent, name]);
+
+// Helper: check live_prices_enabled setting
+const getLivePricesSetting = async () => {
+    const result = await pool.query(
+        'SELECT value FROM roa_settings WHERE key = $1',
+        ['live_prices_enabled']
+    );
+    return result.rows[0];
+};
+
+// Helper: get cached price row
+const getCachedPrice = async (ticker) => {
+    const result = await pool.query(
+        'SELECT * FROM roa_price_cache WHERE ticker = $1',
+        [ticker]
+    );
+    return result.rows[0] ?? null;
+};
+
 // GET stock price (with caching)
 router.get('/:ticker', async (req, res) => {
     try {
         const ticker = req.params.ticker.toUpperCase();
 
         // Check settings
-        const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('live_prices_enabled');
+        const setting = await getLivePricesSetting();
         if (!setting || setting.value !== 'true') {
-            const cached = db.prepare('SELECT * FROM price_cache WHERE ticker = ?').get(ticker);
+            const cached = await getCachedPrice(ticker);
             if (cached) {
                 return apiResponse.success(res, {
                     ...cached,
@@ -55,7 +87,7 @@ router.get('/:ticker', async (req, res) => {
         }
 
         // Return fresh cache if available
-        const cached = db.prepare('SELECT * FROM price_cache WHERE ticker = ?').get(ticker);
+        const cached = await getCachedPrice(ticker);
         if (cached && isCacheFresh(cached.updatedAt)) {
             return apiResponse.success(res, {
                 ticker: cached.ticker,
@@ -79,11 +111,7 @@ router.get('/:ticker', async (req, res) => {
                 const changePercent = quote.regularMarketChangePercent ?? 0;
                 const name = quote.shortName || quote.longName || '';
 
-                // Update cache (store as cents)
-                db.prepare(`
-                    INSERT OR REPLACE INTO price_cache (ticker, price, change, changePercent, name, updatedAt)
-                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                `).run(ticker, toCents(price), toCents(change), changePercent, name);
+                await upsertPrice(ticker, price, change, changePercent, name);
 
                 return apiResponse.success(res, {
                     ticker,
@@ -128,7 +156,7 @@ router.post('/batch', async (req, res) => {
             return apiResponse.error(res, 'No tickers provided', 400);
         }
 
-        const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('live_prices_enabled');
+        const setting = await getLivePricesSetting();
         const livePricesEnabled = setting && setting.value === 'true';
 
         const uniqueTickers = [...new Set(tickers.slice(0, 20).map(t => t.toUpperCase()))];
@@ -137,7 +165,7 @@ router.post('/batch', async (req, res) => {
         if (!livePricesEnabled) {
             const results = {};
             for (const t of uniqueTickers) {
-                const cached = db.prepare('SELECT * FROM price_cache WHERE ticker = ?').get(t);
+                const cached = await getCachedPrice(t);
                 if (cached) {
                     results[t] = {
                         ...cached,
@@ -155,7 +183,7 @@ router.post('/batch', async (req, res) => {
         const staleTickers = [];
 
         for (const t of uniqueTickers) {
-            const cached = db.prepare('SELECT * FROM price_cache WHERE ticker = ?').get(t);
+            const cached = await getCachedPrice(t);
             if (cached && isCacheFresh(cached.updatedAt)) {
                 results[t] = {
                     ticker: cached.ticker,
@@ -182,10 +210,7 @@ router.post('/batch', async (req, res) => {
                     const changePercent = quote.regularMarketChangePercent ?? 0;
                     const name = quote.shortName || quote.longName || '';
 
-                    db.prepare(`
-                        INSERT OR REPLACE INTO price_cache (ticker, price, change, changePercent, name, updatedAt)
-                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    `).run(ticker, toCents(price), toCents(change), changePercent, name);
+                    await upsertPrice(ticker, price, change, changePercent, name);
 
                     return { ticker, data: { price, change, changePercent, name, live: true } };
                 }
@@ -193,7 +218,7 @@ router.post('/batch', async (req, res) => {
                 // Fall through to cache
             }
 
-            const cached = db.prepare('SELECT * FROM price_cache WHERE ticker = ?').get(ticker);
+            const cached = await getCachedPrice(ticker);
             if (cached) {
                 return {
                     ticker,
@@ -235,7 +260,7 @@ router.post('/options/batch', async (req, res) => {
             return apiResponse.error(res, 'No contracts provided', 400);
         }
 
-        const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('live_prices_enabled');
+        const setting = await getLivePricesSetting();
         if (!setting || setting.value !== 'true') {
             return apiResponse.success(res, {});
         }
@@ -261,7 +286,6 @@ router.post('/options/batch', async (req, res) => {
         for (const [groupKey, group] of Object.entries(groups)) {
             const cached = optionPriceCache.get(groupKey);
             if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
-                // Serve from cache — match requested contracts
                 for (const { strike, type } of group.lookups) {
                     const contractKey = `${group.ticker}:${strike}:${group.expirationDate}:${type}`;
                     if (cached.data[contractKey]) {
@@ -282,7 +306,6 @@ router.post('/options/batch', async (req, res) => {
                 const chain = opts.options?.[0];
                 if (!chain) return;
 
-                // Cache the full chain for this ticker+expiry
                 const allContracts = [...(chain.calls || []), ...(chain.puts || [])];
                 for (const c of allContracts) {
                     const isCall = chain.calls?.includes(c);
@@ -306,7 +329,6 @@ router.post('/options/batch', async (req, res) => {
                 optionPriceCache.set(groupKey, { data: groupData, fetchedAt: Date.now() });
                 evictStaleOptionCache();
 
-                // Return only the requested contracts
                 for (const { strike, type } of lookups) {
                     const key = `${ticker}:${strike}:${expirationDate}:${type}`;
                     if (groupData[key]) {
