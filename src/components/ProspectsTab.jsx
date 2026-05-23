@@ -11,6 +11,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API_URL } from '../utils/constants';
+import { TickerModal } from './TickerModal';
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 const f2  = v => v != null ? Number(v).toFixed(2) : '—';
@@ -72,6 +73,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
     // Card open / narrative-open state (Set of tickers)
     const [openCards, setOpenCards]   = useState(new Set());
     const [narrCards, setNarrCards]   = useState(new Set());
+
+    // Ticker chart modal
+    const [chartModal, setChartModal] = useState({ open: false, ticker: null, prospect: null });
+    const openChart  = useCallback((c) => setChartModal({ open: true, ticker: c.ticker, prospect: c }), []);
+    const closeChart = useCallback(()  => setChartModal({ open: false, ticker: null, prospect: null }), []);
 
     // Poll progress bar
     const [polling, setPolling]       = useState(false);
@@ -346,7 +352,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 /* ── Column headers ── */
                 .pt-col-hdr {
                     display: grid;
-                    grid-template-columns: 72px 110px 76px 1fr 110px 170px 165px 155px 110px;
+                    grid-template-columns: 80px 115px 80px 195px 125px 192px 182px 170px 112px;
                     padding: 8px 12px 8px 32px;
                     font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
                     color: var(--pt-text); border-bottom: 1px solid var(--pt-border);
@@ -373,66 +379,70 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 .pt-crow {
                     display: grid;
-                    grid-template-columns: 72px 110px 76px 1fr 110px 170px 165px 155px 110px;
+                    grid-template-columns: 80px 115px 80px 195px 125px 192px 182px 170px 112px;
                     align-items: center;
-                    padding: 12px 20px;
+                    padding: 16px 20px;
                     cursor: pointer; user-select: none;
                 }
                 .pt-crow:hover { background: rgba(255,255,255,.025); }
 
                 /* ── Cell styles ── */
-                .pt-c-ticker { font-size: 17px; font-weight: 600; color: #fff; }
+                .pt-c-ticker {
+                    font-size: 22px; font-weight: 600; color: #fff;
+                    cursor: pointer; transition: color .12s;
+                }
+                .pt-c-ticker:hover { color: var(--pt-fav); text-decoration: underline; text-underline-offset: 3px; }
 
-                .pt-c-rec { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; line-height: 1.3; }
+                .pt-c-rec { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; line-height: 1.4; }
                 .pt-c-rec.FAVORABLE { color: var(--pt-fav); }
                 .pt-c-rec.MARGINAL  { color: var(--pt-mar); }
 
-                .pt-c-score { font-size: 24px; font-weight: 600; color: var(--pt-text); }
-                .pt-c-score sup { font-size: 11px; color: var(--pt-muted); font-weight: 400; vertical-align: super; }
+                .pt-c-score { font-size: 30px; font-weight: 600; color: var(--pt-text); }
+                .pt-c-score sup { font-size: 13px; color: var(--pt-muted); font-weight: 400; vertical-align: super; }
 
-                .pt-cell { display: flex; flex-direction: column; gap: 5px; }
-                .pt-lbl  { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--pt-sub); font-weight: 500; }
+                .pt-cell { display: flex; flex-direction: column; gap: 6px; }
+                .pt-lbl  { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--pt-sub); font-weight: 500; }
 
-                .pt-ppair { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-                .pt-p-snap { font-size: 15px; color: var(--pt-text); }
-                .pt-p-arr  { font-size: 11px; color: var(--pt-muted); }
-                .pt-p-live { font-size: 16px; font-weight: 600; }
+                .pt-ppair { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+                .pt-p-snap { font-size: 18px; color: var(--pt-text); }
+                .pt-p-arr  { font-size: 13px; color: var(--pt-muted); }
+                .pt-p-live { font-size: 20px; font-weight: 600; }
                 .pt-p-live.ok   { color: var(--pt-go); }
                 .pt-p-live.warn { color: var(--pt-watch); }
                 .pt-p-live.bad  { color: var(--pt-broken); }
                 .pt-p-live.def  { color: var(--pt-text); }
-                .pt-no-live { font-size: 11px; color: var(--pt-muted); margin-left: 4px; }
+                .pt-no-live { font-size: 13px; color: var(--pt-muted); margin-left: 4px; }
 
-                .pt-big-val { font-size: 18px; font-weight: 600; }
+                .pt-big-val { font-size: 22px; font-weight: 600; }
                 .pt-big-val.ok   { color: var(--pt-go); }
                 .pt-big-val.warn { color: var(--pt-watch); }
                 .pt-big-val.bad  { color: var(--pt-broken); }
                 .pt-big-val.def  { color: var(--pt-text); }
 
-                .pt-cpair  { display: flex; align-items: baseline; gap: 6px; }
-                .pt-c-floor { font-size: 16px; font-weight: 600; }
+                .pt-cpair  { display: flex; align-items: baseline; gap: 7px; }
+                .pt-c-floor { font-size: 20px; font-weight: 600; }
                 .pt-c-floor.ok   { color: var(--pt-go); }
                 .pt-c-floor.warn { color: var(--pt-watch); }
                 .pt-c-floor.bad  { color: var(--pt-broken); }
                 .pt-c-floor.def  { color: var(--pt-text); }
-                .pt-c-mid { font-size: 16px; font-weight: 600; }
+                .pt-c-mid { font-size: 20px; font-weight: 600; }
                 .pt-c-mid.ok   { color: var(--pt-go); }
                 .pt-c-mid.warn { color: var(--pt-watch); }
                 .pt-c-mid.bad  { color: var(--pt-broken); }
                 .pt-c-mid.def  { color: var(--pt-sub); }
 
-                .pt-contract-top { font-size: 15px; color: var(--pt-text); font-weight: 600; }
-                .pt-contract-sub { font-size: 13px; color: var(--pt-sub); margin-top: 3px; }
+                .pt-contract-top { font-size: 18px; color: var(--pt-text); font-weight: 600; }
+                .pt-contract-sub { font-size: 14px; color: var(--pt-sub); margin-top: 4px; }
 
-                .pt-thresh { display: flex; flex-direction: column; gap: 5px; }
+                .pt-thresh { display: flex; flex-direction: column; gap: 6px; }
                 .pt-trow   { display: flex; align-items: baseline; gap: 8px; }
-                .pt-tk { font-size: 11px; color: var(--pt-sub); width: 58px; flex-shrink: 0; letter-spacing: .06em; text-transform: uppercase; font-weight: 500; }
-                .pt-tv { font-size: 15px; color: var(--pt-text); font-weight: 600; }
+                .pt-tk { font-size: 12px; color: var(--pt-sub); width: 64px; flex-shrink: 0; letter-spacing: .06em; text-transform: uppercase; font-weight: 500; }
+                .pt-tv { font-size: 18px; color: var(--pt-text); font-weight: 600; }
 
-                .pt-c-status { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+                .pt-c-status { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
                 .pt-badge {
-                    font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-                    padding: 4px 10px; border-radius: 2px; display: inline-block;
+                    font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+                    padding: 5px 11px; border-radius: 2px; display: inline-block;
                 }
                 .pt-badge.GO      { background: rgba(31,223,127,.12); color: var(--pt-go);     border: 1px solid rgba(31,223,127,.3); }
                 .pt-badge.WATCH   { background: rgba(245,166,35,.12); color: var(--pt-watch);  border: 1px solid rgba(245,166,35,.3); }
@@ -444,10 +454,10 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-badge.EXPIRED { background: rgba(85,102,119,.1);  color: var(--pt-muted);  border: 1px solid rgba(85,102,119,.3); }
                 .pt-badge.ok      { background: rgba(31,223,127,.12); color: var(--pt-go);     border: 1px solid rgba(31,223,127,.3); }
                 .pt-badge.drifted { background: rgba(245,166,35,.12); color: var(--pt-watch);  border: 1px solid rgba(245,166,35,.3); }
-                .pt-cap-time { font-size: 11px; color: var(--pt-sub); }
+                .pt-cap-time { font-size: 13px; color: var(--pt-sub); }
                 .pt-ai-btn {
-                    font-family: inherit; font-size: 10px; color: var(--pt-muted); cursor: pointer;
-                    padding: 3px 8px; border: 1px solid var(--pt-border2);
+                    font-family: inherit; font-size: 12px; color: var(--pt-muted); cursor: pointer;
+                    padding: 4px 10px; border: 1px solid var(--pt-border2);
                     border-radius: 2px; background: transparent; transition: all .15s;
                 }
                 .pt-ai-btn:hover { color: var(--pt-fav); border-color: var(--pt-fav); }
@@ -459,11 +469,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                     background: rgba(0,0,0,.25); flex-wrap: wrap;
                 }
                 .pt-card.open .pt-arow { display: flex; }
-                .pt-albl { font-size: 12px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
+                .pt-albl { font-size: 13px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 6px; }
                 .pt-abtn {
-                    font-family: inherit; font-size: 12px; font-weight: 600;
+                    font-family: inherit; font-size: 13px; font-weight: 600;
                     letter-spacing: .06em; text-transform: uppercase;
-                    padding: 7px 18px; border-radius: 2px;
+                    padding: 8px 22px; border-radius: 2px;
                     border: 1px solid var(--pt-border2); background: transparent;
                     color: var(--pt-sub); cursor: pointer; transition: all .15s;
                 }
@@ -477,11 +487,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 /* ── Live contract panel ── */
                 .pt-lc-panel {
                     display: none; align-items: center; gap: 16px; flex-wrap: wrap;
-                    padding: 11px 20px 12px; border-top: 1px solid var(--pt-border);
-                    background: rgba(0,0,0,.20); font-size: 14px;
+                    padding: 12px 20px 14px; border-top: 1px solid var(--pt-border);
+                    background: rgba(0,0,0,.20); font-size: 16px;
                 }
                 .pt-card.open .pt-lc-panel { display: flex; }
-                .pt-lc-label    { font-size: 12px; font-weight: 600; letter-spacing: .1em; color: var(--pt-sub); text-transform: uppercase; margin-right: 2px; }
+                .pt-lc-label    { font-size: 13px; font-weight: 600; letter-spacing: .1em; color: var(--pt-sub); text-transform: uppercase; margin-right: 4px; }
                 .pt-lc-contract { color: var(--pt-text); font-weight: 600; letter-spacing: .04em; }
                 .pt-lc-sub      { color: var(--pt-sub); }
                 .pt-lc-prem     { color: var(--pt-go); font-weight: 600; }
@@ -496,7 +506,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                     display: none; padding: 16px 20px;
                     border-top: 1px solid var(--pt-border);
                     background: rgba(0,0,0,.35);
-                    font-size: 12px; line-height: 1.7; color: var(--pt-sub);
+                    font-size: 14px; line-height: 1.75; color: var(--pt-sub);
                     white-space: pre-wrap; word-break: break-word;
                     max-height: 440px; overflow-y: auto;
                 }
@@ -614,16 +624,25 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                             onToggleNarr={(e) => toggleNarr(c.ticker, e)}
                             onSetStatus={setStatus}
                             onEntered={handleEntered}
+                            onTickerClick={openChart}
                         />
                     ))}
                 </div>
             </div>
+
+            {/* ── Ticker chart modal ── */}
+            <TickerModal
+                isOpen={chartModal.open}
+                onClose={closeChart}
+                ticker={chartModal.ticker}
+                prospect={chartModal.prospect}
+            />
         </>
     );
 }
 
 // ── ProspectCard ─────────────────────────────────────────────────────────────
-function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStatus, onEntered }) {
+function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStatus, onEntered, onTickerClick }) {
     const bk     = badgeKey(c);
     const rd     = c.run_date || '';
     const paused = !!c.paused;
@@ -670,8 +689,12 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
         <div className={cardClasses}>
             {/* ── Main row ── */}
             <div className="pt-crow" onClick={onToggle}>
-                {/* Ticker */}
-                <div className="pt-c-ticker">{c.ticker}</div>
+                {/* Ticker — clickable to open chart modal */}
+                <div
+                    className="pt-c-ticker"
+                    onClick={e => { e.stopPropagation(); onTickerClick(c); }}
+                    title={`Chart ${c.ticker}`}
+                >{c.ticker}</div>
 
                 {/* Rec */}
                 <div className={`pt-c-rec ${c.recommendation || ''}`}>
