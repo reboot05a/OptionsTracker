@@ -48,16 +48,13 @@ function TradingViewChart({ ticker, interval }) {
             allow_symbol_change: false,
             hide_legend:         false,
             studies: [
-                // Main chart overlays — all objects so format is consistent
-                { id: 'MASimple@tv-basicstudies', inputs: { length: 20 },
-                  overrides: { 'Plot.color': '#00BFFF', 'Plot.linewidth': 1 } },   // SMA 20 — cyan
-                { id: 'MASimple@tv-basicstudies', inputs: { length: 50 },
-                  overrides: { 'Plot.color': '#FF8C00', 'Plot.linewidth': 1 } },   // SMA 50 — orange
-                { id: 'BB@tv-basicstudies' },                                       // Bollinger Bands
-                // Sub-chart indicators
-                { id: 'RSI@tv-basicstudies' },                                      // RSI(14)
-                { id: 'MACD@tv-basicstudies' },                                     // MACD
-                { id: 'ATR@tv-basicstudies' },                                      // ATR
+                // Main chart overlays
+                { id: 'MASimple@tv-basicstudies', inputs: { length: 20 } },  // SMA 20
+                { id: 'MAExp@tv-basicstudies',    inputs: { length: 50 } },  // EMA 50 — different type = different default color
+                { id: 'BB@tv-basicstudies' },                                 // Bollinger Bands
+                // Sub-chart (TV free tier caps at 2 panes)
+                { id: 'RSI@tv-basicstudies' },                                // RSI(14)
+                { id: 'MACD@tv-basicstudies' },                               // MACD
             ],
         });
         container.appendChild(script);
