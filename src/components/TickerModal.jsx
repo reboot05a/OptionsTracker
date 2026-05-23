@@ -48,14 +48,16 @@ function TradingViewChart({ ticker, interval }) {
             allow_symbol_change: false,
             hide_legend:         false,
             studies: [
-                // Main chart overlays
-                { id: 'MASimple@tv-basicstudies', inputs: { length: 20 } },  // SMA 20
-                { id: 'MASimple@tv-basicstudies', inputs: { length: 50 } },  // SMA 50
-                'BB@tv-basicstudies',                                          // Bollinger Bands
+                // Main chart overlays — all objects so format is consistent
+                { id: 'MASimple@tv-basicstudies', inputs: { length: 20 },
+                  overrides: { 'Plot.color': '#00BFFF', 'Plot.linewidth': 1 } },   // SMA 20 — cyan
+                { id: 'MASimple@tv-basicstudies', inputs: { length: 50 },
+                  overrides: { 'Plot.color': '#FF8C00', 'Plot.linewidth': 1 } },   // SMA 50 — orange
+                { id: 'BB@tv-basicstudies' },                                       // Bollinger Bands
                 // Sub-chart indicators
-                'RSI@tv-basicstudies',                                         // RSI(14)
-                'MACD@tv-basicstudies',                                        // MACD — momentum/trend
-                'ATR@tv-basicstudies',                                         // ATR — volatility
+                { id: 'RSI@tv-basicstudies' },                                      // RSI(14)
+                { id: 'MACD@tv-basicstudies' },                                     // MACD
+                { id: 'ATR@tv-basicstudies' },                                      // ATR
             ],
         });
         container.appendChild(script);
@@ -185,8 +187,8 @@ export function TickerModal({ isOpen, onClose, ticker, prospect }) {
                     border-bottom: 1px solid #1f2530;
                 }
                 .tm-section-title {
-                    font-size: 11px; font-weight: 700; letter-spacing: .14em;
-                    text-transform: uppercase; color: #556070;
+                    font-size: 12px; font-weight: 700; letter-spacing: .13em;
+                    text-transform: uppercase; color: #8090a8;
                     margin-bottom: 7px;
                 }
 
