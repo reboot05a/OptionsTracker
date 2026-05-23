@@ -70,9 +70,8 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
     const [error, setError]     = useState('');
     const [lastUpdated, setLastUpdated] = useState('');
 
-    // Card open / narrative-open state (Set of tickers)
-    const [openCards, setOpenCards]   = useState(new Set());
-    const [narrCards, setNarrCards]   = useState(new Set());
+    // Narrative-open state (Set of tickers) — main card expansion removed
+    const [narrCards, setNarrCards] = useState(new Set());
 
     // Ticker chart modal
     const [chartModal, setChartModal] = useState({ open: false, ticker: null, prospect: null });
@@ -168,15 +167,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
         }
     }, [load]);
 
-    // ── Card toggle helpers ───────────────────────────────────────────────
-    const toggleCard = useCallback((ticker) => {
-        setOpenCards(prev => {
-            const next = new Set(prev);
-            next.has(ticker) ? next.delete(ticker) : next.add(ticker);
-            return next;
-        });
-    }, []);
-
+    // ── Narrative toggle ──────────────────────────────────────────────────
     const toggleNarr = useCallback((ticker, e) => {
         e.stopPropagation();
         setNarrCards(prev => {
@@ -352,7 +343,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 /* ── Column headers ── */
                 .pt-col-hdr {
                     display: grid;
-                    grid-template-columns: 80px 115px 80px 195px 125px 192px 182px 170px 112px;
+                    grid-template-columns: 80px 115px 80px 195px 125px 192px 1fr 160px;
                     padding: 8px 12px 8px 32px;
                     font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
                     color: var(--pt-text); border-bottom: 1px solid var(--pt-border);
@@ -379,12 +370,11 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 
                 .pt-crow {
                     display: grid;
-                    grid-template-columns: 80px 115px 80px 195px 125px 192px 182px 170px 112px;
+                    grid-template-columns: 80px 115px 80px 195px 125px 192px 1fr 160px;
                     align-items: center;
                     padding: 16px 20px;
-                    cursor: pointer; user-select: none;
+                    user-select: none;
                 }
-                .pt-crow:hover { background: rgba(255,255,255,.025); }
 
                 /* ── Cell styles ── */
                 .pt-c-ticker {
@@ -431,13 +421,26 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-c-mid.bad  { color: var(--pt-broken); }
                 .pt-c-mid.def  { color: var(--pt-sub); }
 
-                .pt-contract-top { font-size: 18px; color: var(--pt-text); font-weight: 600; }
-                .pt-contract-sub { font-size: 14px; color: var(--pt-sub); margin-top: 4px; }
+                /* ── Contract cell (colored by live status) ── */
+                .pt-orig-contract {
+                    display: block; font-size: 15px; font-weight: 600;
+                    letter-spacing: .03em; white-space: nowrap;
+                }
+                .pt-orig-contract.GO      { color: var(--pt-go); }
+                .pt-orig-contract.WATCH   { color: var(--pt-watch); }
+                .pt-orig-contract.BROKEN  { color: var(--pt-broken); }
+                .pt-orig-contract.NO_DATA,
+                .pt-orig-contract.PAUSED,
+                .pt-orig-contract.ENTERED { color: var(--pt-sub); }
 
-                .pt-thresh { display: flex; flex-direction: column; gap: 6px; }
-                .pt-trow   { display: flex; align-items: baseline; gap: 8px; }
-                .pt-tk { font-size: 12px; color: var(--pt-sub); width: 64px; flex-shrink: 0; letter-spacing: .06em; text-transform: uppercase; font-weight: 500; }
-                .pt-tv { font-size: 18px; color: var(--pt-text); font-weight: 600; }
+                .pt-alt-contract {
+                    display: block; font-size: 14px; font-weight: 600;
+                    color: var(--pt-go); margin-top: 5px; white-space: nowrap;
+                }
+                .pt-no-alt {
+                    display: block; font-size: 12px; color: var(--pt-muted);
+                    font-style: italic; margin-top: 4px;
+                }
 
                 .pt-c-status { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
                 .pt-badge {
@@ -462,18 +465,23 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 }
                 .pt-ai-btn:hover { color: var(--pt-fav); border-color: var(--pt-fav); }
 
-                /* ── Action row ── */
-                .pt-arow {
-                    display: none; align-items: center; gap: 10px;
-                    padding: 10px 20px 12px; border-top: 1px solid var(--pt-border);
-                    background: rgba(0,0,0,.25); flex-wrap: wrap;
+                /* ── Always-visible metrics + actions row ── */
+                .pt-metrics-row {
+                    display: flex; align-items: center; justify-content: space-between;
+                    padding: 8px 20px 10px 32px;
+                    border-top: 1px solid var(--pt-border);
+                    background: rgba(0,0,0,.20); flex-wrap: wrap; gap: 8px;
                 }
-                .pt-card.open .pt-arow { display: flex; }
-                .pt-albl { font-size: 13px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 6px; }
+                .pt-metrics-left { display: flex; align-items: center; gap: 10px; }
+                .pt-mval { font-size: 13px; color: var(--pt-sub); letter-spacing: .05em; text-transform: uppercase; }
+                .pt-mval strong { color: var(--pt-text); font-weight: 600; }
+                .pt-msep { color: var(--pt-border2); font-size: 16px; }
+                .pt-metrics-actions { display: flex; align-items: center; gap: 8px; }
+                .pt-albl { font-size: 12px; color: var(--pt-muted); letter-spacing: .07em; text-transform: uppercase; margin-right: 4px; }
                 .pt-abtn {
-                    font-family: inherit; font-size: 13px; font-weight: 600;
+                    font-family: inherit; font-size: 12px; font-weight: 600;
                     letter-spacing: .06em; text-transform: uppercase;
-                    padding: 8px 22px; border-radius: 2px;
+                    padding: 6px 16px; border-radius: 2px;
                     border: 1px solid var(--pt-border2); background: transparent;
                     color: var(--pt-sub); cursor: pointer; transition: all .15s;
                 }
@@ -483,23 +491,6 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                 .pt-abtn.pause:hover   { color: var(--pt-paused); border-color: var(--pt-paused); }
                 .pt-abtn.unpause:hover { color: var(--pt-go);     border-color: var(--pt-go); }
                 .pt-abtn.reset:hover   { color: var(--pt-sub);    border-color: var(--pt-sub); }
-
-                /* ── Live contract panel ── */
-                .pt-lc-panel {
-                    display: none; align-items: center; gap: 16px; flex-wrap: wrap;
-                    padding: 12px 20px 14px; border-top: 1px solid var(--pt-border);
-                    background: rgba(0,0,0,.20); font-size: 16px;
-                }
-                .pt-card.open .pt-lc-panel { display: flex; }
-                .pt-lc-label    { font-size: 13px; font-weight: 600; letter-spacing: .1em; color: var(--pt-sub); text-transform: uppercase; margin-right: 4px; }
-                .pt-lc-contract { color: var(--pt-text); font-weight: 600; letter-spacing: .04em; }
-                .pt-lc-sub      { color: var(--pt-sub); }
-                .pt-lc-prem     { color: var(--pt-go); font-weight: 600; }
-                .pt-lc-yield    { font-weight: 600; }
-                .pt-lc-yield.ok      { color: var(--pt-go); }
-                .pt-lc-yield.drifted { color: var(--pt-watch); }
-                .pt-lc-oi       { color: var(--pt-sub); }
-                .pt-lc-cmp      { color: var(--pt-sub); font-size: 12px; }
 
                 /* ── Narrative ── */
                 .pt-narr {
@@ -601,8 +592,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                         <div>Stock snap → live</div>
                         <div>Entry Limit</div>
                         <div>Call floor → live</div>
-                        <div>Contract</div>
-                        <div>BE / Cushion / Yield</div>
+                        <div>Contract / Live Best</div>
                         <div style={{ textAlign: 'right', paddingRight: '4px' }}>Status</div>
                     </div>
                 )}
@@ -618,9 +608,7 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                         <ProspectCard
                             key={c.ticker}
                             c={c}
-                            isOpen={openCards.has(c.ticker)}
                             isNarrOpen={narrCards.has(c.ticker)}
-                            onToggle={() => toggleCard(c.ticker)}
                             onToggleNarr={(e) => toggleNarr(c.ticker, e)}
                             onSetStatus={setStatus}
                             onEntered={handleEntered}
@@ -642,20 +630,20 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
 }
 
 // ── ProspectCard ─────────────────────────────────────────────────────────────
-function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStatus, onEntered, onTickerClick }) {
-    const bk     = badgeKey(c);
-    const rd     = c.run_date || '';
-    const paused = !!c.paused;
-    const done   = ['ENTERED', 'WALKED', 'EXPIRED', 'BROKEN'].includes((c.status || '').toUpperCase());
+function ProspectCard({ c, isNarrOpen, onToggleNarr, onSetStatus, onEntered, onTickerClick }) {
+    const bk      = badgeKey(c);
+    const rd      = c.run_date || '';
+    const paused  = !!c.paused;
+    const done    = ['ENTERED', 'WALKED', 'EXPIRED'].includes((c.status || '').toUpperCase());
 
     // Stock snap → live
-    const snapStr  = c.stock_price_snapshot != null ? `$${f2(c.stock_price_snapshot)}` : '—';
-    const liveStr  = c.stock_price != null ? `$${f2(c.stock_price)}` : null;
-    const pCls     = priceClass(c.stock_price, c.stock_ceiling);
+    const snapStr = c.stock_price_snapshot != null ? `$${f2(c.stock_price_snapshot)}` : '—';
+    const liveStr = c.stock_price != null ? `$${f2(c.stock_price)}` : null;
+    const pCls    = priceClass(c.stock_price, c.stock_ceiling);
 
     // Entry limit
-    const ceilStr  = c.stock_ceiling != null ? `$${f2(c.stock_ceiling)}` : '—';
-    const ceilCls  = priceClass(c.stock_price, c.stock_ceiling);
+    const ceilStr = c.stock_ceiling != null ? `$${f2(c.stock_ceiling)}` : '—';
+    const ceilCls = priceClass(c.stock_price, c.stock_ceiling);
 
     // Call floor → live mid
     const floorStr = c.call_floor != null ? `$${f2(c.call_floor)}` : '—';
@@ -663,38 +651,38 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
     const fCls     = floorClass(c.call_mid, c.call_floor);
     const mCls     = callMidClass(c.call_mid, c.call_floor);
 
-    // Contract
-    const strike   = c.strike != null ? `$${f2(c.strike)}` : '—';
-    const exp      = c.expiration_date ? String(c.expiration_date).slice(5, 10).replace('-', '/') : '—';
-    const dte      = c.dte != null ? `${c.dte}d` : '';
-    const iv       = c.iv  != null ? `IV ${(Number(c.iv) * 100).toFixed(1)}%` : '';
+    // Contract display
+    const strike = c.strike != null ? `$${f2(c.strike)}` : '—';
+    const exp    = c.expiration_date ? String(c.expiration_date).slice(5, 10).replace('-', '/') : '—';
+    const dte    = c.dte != null ? `${c.dte}d` : '';
+    const ivStr  = c.iv  != null ? `IV ${(Number(c.iv) * 100).toFixed(1)}%` : '';
+
+    // Overall status for contract coloring (separate from badge key)
+    const overallCls = paused ? 'PAUSED'
+        : (c.overall_status || 'NO_DATA').toUpperCase();
 
     // Captured time
-    const capTime  = c.captured_at
+    const capTime = c.captured_at
         ? new Date(c.captured_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         : 'no data';
 
-    // Live contract panel
+    // Live best contract
     const lc = c.live_contract;
     const hasLC = lc && lc.drift_status;
-    // True when live best is the same strike+expiry as the recommendation
     const isSameContract = hasLC
         && lc.strike != null && c.strike != null
         && Number(lc.strike) === Number(c.strike)
         && String(lc.expiration_date).slice(0, 10) === String(c.expiration_date).slice(0, 10);
+    const showNoAlt = (isSameContract || !hasLC)
+        && ['WATCH', 'BROKEN'].includes((c.overall_status || '').toUpperCase());
 
-    // Card classes
-    const cardClasses = [
-        'pt-card', bk,
-        isOpen     ? 'open'      : '',
-        isNarrOpen ? 'narr-open' : '',
-    ].filter(Boolean).join(' ');
+    const cardClasses = ['pt-card', bk, isNarrOpen ? 'narr-open' : ''].filter(Boolean).join(' ');
 
     return (
         <div className={cardClasses}>
-            {/* ── Main row ── */}
-            <div className="pt-crow" onClick={onToggle}>
-                {/* Ticker — clickable to open chart modal */}
+            {/* ── Main data row ── */}
+            <div className="pt-crow">
+                {/* Ticker */}
                 <div
                     className="pt-c-ticker"
                     onClick={e => { e.stopPropagation(); onTickerClick(c); }}
@@ -719,8 +707,7 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
                         <span className="pt-p-snap">{snapStr}</span>
                         {liveStr
                             ? <><span className="pt-p-arr">→</span><span className={`pt-p-live ${pCls}`}>{liveStr}</span></>
-                            : <span className="pt-no-live">no live</span>
-                        }
+                            : <span className="pt-no-live">no live</span>}
                     </div>
                 </div>
 
@@ -730,7 +717,7 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
                     <span className={`pt-big-val ${ceilCls}`}>{ceilStr}</span>
                 </div>
 
-                {/* Call floor → live */}
+                {/* Call floor → live mid */}
                 <div className="pt-cell">
                     <span className="pt-lbl">Call floor → live</span>
                     <div className="pt-cpair">
@@ -740,106 +727,57 @@ function ProspectCard({ c, isOpen, isNarrOpen, onToggle, onToggleNarr, onSetStat
                     </div>
                 </div>
 
-                {/* Contract */}
+                {/* Contract — colored by live status; alt contract below if different */}
                 <div className="pt-cell">
-                    <span className="pt-lbl">Contract</span>
-                    <span className="pt-contract-top">{strike}  {exp}  {dte}</span>
-                    <span className="pt-contract-sub">δ{d3(c.delta)}  {iv}</span>
-                </div>
-
-                {/* BE / Cushion / Yield */}
-                <div className="pt-thresh">
-                    <div className="pt-trow"><span className="pt-tk">BE</span><span className="pt-tv">${f2(c.breakeven)}</span></div>
-                    <div className="pt-trow"><span className="pt-tk">Cushion</span><span className="pt-tv">{pct(c.cushion_pct)}</span></div>
-                    <div className="pt-trow"><span className="pt-tk">Yield</span><span className="pt-tv">{pct(c.annualized_yield)}</span></div>
+                    <span className="pt-lbl">Contract / Live Best</span>
+                    <span className={`pt-orig-contract ${overallCls}`}>
+                        {strike}  {exp}  {dte}  δ{d3(c.delta)}  {ivStr}
+                    </span>
+                    {!isSameContract && hasLC && (
+                        <span className="pt-alt-contract">
+                            ↳ ${f2(lc.strike)}  {String(lc.expiration_date).slice(5,10).replace('-','/')}  {lc.dte != null ? `${lc.dte}d` : ''}
+                            {lc.premium_mid != null ? `  ·  $${f2(lc.premium_mid)}` : ''}
+                            {lc.annualized_yield != null ? `  ${Number(lc.annualized_yield).toFixed(1)}% ann` : ''}
+                        </span>
+                    )}
+                    {showNoAlt && (
+                        <span className="pt-no-alt">no alternate contract found</span>
+                    )}
                 </div>
 
                 {/* Status */}
                 <div className="pt-c-status">
                     <span className={`pt-badge ${bk}`}>{bk}</span>
                     <span className="pt-cap-time">{capTime}</span>
-                    <button className="pt-ai-btn" onClick={onToggleNarr}>AI ▾</button>
                 </div>
             </div>
 
-            {/* ── Action row ── */}
-            <div className="pt-arow" onClick={e => e.stopPropagation()}>
-                <span className="pt-albl">Mark:</span>
-                <button
-                    className="pt-abtn enter"
-                    onClick={e => onEntered(e, c)}
-                >✓ Entered</button>
-                <button
-                    className="pt-abtn walk"
-                    onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { status: 'WALKED' }); }}
-                >✗ Walked</button>
-                {paused
-                    ? <button
-                        className="pt-abtn unpause"
-                        onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { paused: false }); }}
-                      >▶ Resume</button>
-                    : <button
-                        className="pt-abtn pause"
-                        onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { paused: true }); }}
-                      >⏸ Pause</button>
-                }
-                {(done || paused) && (
-                    <button
-                        className="pt-abtn reset"
-                        onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { status: 'PENDING', paused: false }); }}
-                    >↺ Reset</button>
-                )}
+            {/* ── Always-visible metrics + action row ── */}
+            <div className="pt-metrics-row">
+                <div className="pt-metrics-left">
+                    <span className="pt-mval">BE <strong>${f2(c.breakeven)}</strong></span>
+                    <span className="pt-msep">·</span>
+                    <span className="pt-mval">CUSHION <strong>{pct(c.cushion_pct)}</strong></span>
+                    <span className="pt-msep">·</span>
+                    <span className="pt-mval">YIELD <strong>{pct(c.annualized_yield)}</strong></span>
+                    <button className="pt-ai-btn" onClick={onToggleNarr} style={{ marginLeft: 12 }}>AI ▾</button>
+                </div>
+                <div className="pt-metrics-actions" onClick={e => e.stopPropagation()}>
+                    <span className="pt-albl">Mark:</span>
+                    <button className="pt-abtn enter" onClick={e => onEntered(e, c)}>✓ Entered</button>
+                    <button className="pt-abtn walk"  onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { status: 'WALKED' }); }}>✗ Walked</button>
+                    {paused
+                        ? <button className="pt-abtn unpause" onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { paused: false }); }}>▶ Resume</button>
+                        : <button className="pt-abtn pause"   onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { paused: true }); }}>⏸ Pause</button>
+                    }
+                    {(done || paused) && (
+                        <button className="pt-abtn reset" onClick={e => { e.stopPropagation(); onSetStatus(c.ticker, rd, { status: 'PENDING', paused: false }); }}>↺ Reset</button>
+                    )}
+                </div>
             </div>
 
-            {/* ── Live best contract panel ── */}
-            <div className="pt-lc-panel">
-                <span className="pt-lc-label">Live Best</span>
-                {!hasLC ? (
-                    <span style={{ color: 'var(--pt-muted)', fontStyle: 'italic' }}>
-                        no contract passes guardrails
-                    </span>
-                ) : isSameContract ? (
-                    /* Same contract as recommendation — show as confirmation, not a new discovery */
-                    <>
-                        <span className={`pt-badge ${lc.drift_status.toLowerCase()}`}>{lc.drift_status}</span>
-                        <span className="pt-lc-sub" style={{ fontStyle: 'italic' }}>original contract confirmed best</span>
-                        {lc.premium_mid      != null && <span className="pt-lc-prem">${f2(lc.premium_mid)} live mid</span>}
-                        {lc.annualized_yield != null && (
-                            <span className={`pt-lc-yield ${lc.drift_status.toLowerCase()}`}>
-                                {Number(lc.annualized_yield).toFixed(1)}% ann
-                            </span>
-                        )}
-                        {lc.yield_vs_report  != null && <span className="pt-lc-cmp">{lc.yield_vs_report}% of report yield</span>}
-                    </>
-                ) : (
-                    /* Different contract found — show full details */
-                    <>
-                        <span className={`pt-badge ${lc.drift_status.toLowerCase()}`}>{lc.drift_status}</span>
-                        <span className="pt-lc-contract">
-                            {lc.strike != null ? `$${f2(lc.strike)}` : '—'}{' '}
-                            {lc.expiration_date ? String(lc.expiration_date).slice(5, 10).replace('-', '/') : '—'}{' '}
-                            {lc.dte != null ? `${lc.dte}d` : ''}
-                        </span>
-                        <span className="pt-lc-sub">
-                            {lc.delta != null ? `δ${d3(lc.delta)}` : ''}{' '}
-                            {lc.iv    != null ? `IV ${(Number(lc.iv) * 100).toFixed(1)}%` : ''}
-                        </span>
-                        {lc.premium_mid      != null && <span className="pt-lc-prem">${f2(lc.premium_mid)}</span>}
-                        {lc.annualized_yield != null && (
-                            <span className={`pt-lc-yield ${lc.drift_status.toLowerCase()}`}>
-                                {Number(lc.annualized_yield).toFixed(1)}% ann
-                            </span>
-                        )}
-                        {lc.open_interest    != null && <span className="pt-lc-oi">OI {lc.open_interest}</span>}
-                        {lc.yield_vs_report  != null && <span className="pt-lc-cmp">{lc.yield_vs_report}% of report yield</span>}
-                    </>
-                )}
-            </div>
-
-            {/* ── AI narrative ── */}
-            <div className="pt-narr">
-                {c.report_text || ''}
-            </div>
+            {/* ── AI narrative (toggled) ── */}
+            <div className="pt-narr">{c.report_text || ''}</div>
         </div>
     );
 }
