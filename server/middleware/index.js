@@ -23,16 +23,16 @@ export const registerMiddleware = (app) => {
             res.setHeader('Content-Security-Policy', [
                 "default-src 'self'",
                 // 'unsafe-inline' needed for the dark-mode inline script in index.html
-                "script-src 'self' 'unsafe-inline' https://s3.tradingview.com",
+                "script-src 'self' 'unsafe-inline' https://*.tradingview.com",
                 // Google Fonts stylesheet + unsafe-inline for scoped JSX <style> blocks
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                 // Google Fonts actual font files are served from gstatic.com
                 "font-src 'self' https://fonts.gstatic.com",
-                "img-src 'self' data: https://*.tradingview.com",
-                // TradingView widget injects iframes from multiple TV-owned origins
-                "frame-src 'self' https://s3.tradingview.com https://www.tradingview.com https://www.tradingview-widget.com https://*.tradingview-widget.com",
+                "img-src 'self' data: https://*.tradingview.com https://*.tradingview-widget.com",
+                // TradingView uses multiple subdomains/domains for chart iframes
+                "frame-src 'self' https://*.tradingview.com https://*.tradingview-widget.com",
                 // TradingView live chart uses HTTPS + WebSocket connections
-                "connect-src 'self' https://*.tradingview.com wss://*.tradingview.com",
+                "connect-src 'self' https://*.tradingview.com https://*.tradingview-widget.com wss://*.tradingview.com wss://*.tradingview-widget.com",
             ].join('; '));
         }
         next();
