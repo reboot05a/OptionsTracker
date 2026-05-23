@@ -29,8 +29,8 @@ export const registerMiddleware = (app) => {
                 // Google Fonts actual font files are served from gstatic.com
                 "font-src 'self' https://fonts.gstatic.com",
                 "img-src 'self' data: https://*.tradingview.com",
-                // TradingView widget injects an iframe from these origins
-                "frame-src 'self' https://s3.tradingview.com https://www.tradingview.com",
+                // TradingView widget injects iframes from multiple TV-owned origins
+                "frame-src 'self' https://s3.tradingview.com https://www.tradingview.com https://www.tradingview-widget.com https://*.tradingview-widget.com",
                 // TradingView live chart uses HTTPS + WebSocket connections
                 "connect-src 'self' https://*.tradingview.com wss://*.tradingview.com",
             ].join('; '));
