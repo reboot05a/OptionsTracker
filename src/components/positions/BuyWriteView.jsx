@@ -771,7 +771,15 @@ export const BuyWriteView = ({
                                     {(() => {
                                         const rec     = recByTicker[pos.ticker];
                                         const recAge  = rec ? recAgeDays(rec.run_date) : null;
-                                        const showRec = rec && recAge <= REC_STALENESS_CUTOFF;
+                                        // CC-specific recs (close/roll) don't apply to uncovered positions
+                                        const CC_ONLY_RECS = new Set(['CLOSE_URGENT','CLOSE_PROFIT','CONSIDER_CLOSE','ROLL_ALERT']);
+                                        const recIsForWrongStatus =
+                                            rec && pos.status === 'UNCOVERED' && CC_ONLY_RECS.has(rec.recommendation);
+                                        // If the rec predates the current CC's open date it belongs to the old cycle
+                                        const recIsStaleForCycle = rec && pos.cc &&
+                                            rec.run_date < pos.cc.openedDate;
+                                        const showRec = rec && recAge <= REC_STALENESS_CUTOFF
+                                            && !recIsForWrongStatus && !recIsStaleForCycle;
                                         // Detect if the ROLL_ALERT suggestion was already acted on
                                         const rollAlreadyDone = (() => {
                                             if (rec?.recommendation !== 'ROLL_ALERT') return false;
@@ -917,6 +925,10 @@ export const BuyWriteView = ({
                                                 />
                                             )}
                                         </td>
+                                        {/* Premium: always shows entry price; mid/ask breakdown only appears when
+                                            live option prices are enabled and the option has decayed below entry.
+                                            If the option has risen above entry (loss), just shows the current price in red.
+                                            No live data = entry price only — this is expected for older or uncovered positions. */}
                                         <td className="px-3 py-3 text-right font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5">
                                             {pos.cc ? (
                                                 <div>
@@ -982,17 +994,16 @@ export const BuyWriteView = ({
                                             {pos.totalPnl != null ? formatCurrency(pos.totalPnl) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                                         </td>
 
-                                        {/* Actions */}
-                                        <td className="px-3 py-3 text-right">
-                                            <div className="flex justify-end gap-1 flex-nowrap">
+                                        {/* Actions — icon-only to keep table width in check */}
+                                        <td className="px-2 py-3 text-right">
+                                            <div className="flex justify-end gap-0.5 flex-nowrap">
                                                 {pos.status === 'UNCOVERED' && (
                                                     <button
                                                         onClick={() => onNewTrade && onNewTrade()}
                                                         title={`Sell a CC on ${pos.ticker}`}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
+                                                        className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
                                                     >
-                                                        <PlusCircle className="w-3.5 h-3.5" />
-                                                        New CC
+                                                        <PlusCircle className="w-4 h-4" />
                                                     </button>
                                                 )}
                                                 {pos.cc && pos.status === 'ACTIVE_CC' && (
@@ -1000,10 +1011,9 @@ export const BuyWriteView = ({
                                                         <button
                                                             onClick={() => onExpire && onExpire(pos.cc)}
                                                             title="Mark expired worthless"
-                                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
+                                                            className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
                                                         >
-                                                            <CheckCircle2 className="w-3.5 h-3.5" />
-                                                            Expire
+                                                            <CheckCircle2 className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => {
@@ -1011,10 +1021,9 @@ export const BuyWriteView = ({
                                                                 onRoll && onRoll(pos.cc, rollSugg, pos.liveOptionPrice ?? null);
                                                             }}
                                                             title="Roll to new expiration"
-                                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
+                                                            className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
                                                         >
-                                                            <RotateCw className="w-3.5 h-3.5" />
-                                                            Roll
+                                                            <RotateCw className="w-4 h-4" />
                                                         </button>
                                                     </>
                                                 )}
@@ -1022,10 +1031,9 @@ export const BuyWriteView = ({
                                                     <button
                                                         onClick={() => onEdit && onEdit(pos.cc)}
                                                         title="Edit trade"
-                                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
+                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
                                                     >
-                                                        <Edit2 className="w-3.5 h-3.5" />
-                                                        Edit
+                                                        <Edit2 className="w-4 h-4" />
                                                     </button>
                                                 )}
                                             </div>
