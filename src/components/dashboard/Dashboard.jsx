@@ -12,53 +12,52 @@ const KpiCard = ({ label, value, subtext, valueClassName = '' }) => (
 );
 
 export const Dashboard = ({ stats }) => {
-    const totalPnLWithCapitalGains = stats.totalPnLWithCapitalGains ?? stats.totalPnL;
-    const realizedCapitalGL = stats.realizedCapitalGL ?? 0;
-    const closedPositions = stats.closedPositions ?? 0;
-    const totalCommissions = stats.totalCommissions ?? 0;
+    const realizedPnL = stats.totalPremiumCollected ?? 0;
+    const rolledCount = stats.rolledCount ?? 0;
+    const bestTicker = stats.bestTicker;
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <KpiCard
-                label="Options P/L"
-                value={formatCurrency(stats.totalPremiumCollected)}
-                valueClassName={stats.totalPremiumCollected >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
-                subtext={`${stats.closedTradesCount} closed trades`}
-            />
-
-            <KpiCard
-                label="Avg ROI"
-                value={formatPercent(stats.avgRoi)}
-                valueClassName={stats.avgRoi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
-                subtext={`${stats.closedTradesCount} closed trades`}
+                label="Realized P/L"
+                value={formatCurrency(realizedPnL)}
+                valueClassName={realizedPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
+                subtext={`${stats.closedTradesCount} closed · net after closes`}
             />
 
             <KpiCard
                 label="Win Rate"
                 value={formatPercent(stats.winRate)}
                 valueClassName="text-indigo-600 dark:text-indigo-400"
-                subtext={`${stats.resolvedChains} closed chains`}
+                subtext={`${stats.resolvedChains} resolved chains`}
             />
 
             <KpiCard
-                label="Stock Gains"
-                value={formatCurrency(realizedCapitalGL)}
-                valueClassName={realizedCapitalGL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
-                subtext={`${closedPositions} closed positions`}
+                label="Avg ROI"
+                value={formatPercent(stats.avgRoi)}
+                valueClassName={stats.avgRoi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
+                subtext="per completed trade"
             />
 
             <KpiCard
-                label="Total P/L"
-                value={formatCurrency(totalPnLWithCapitalGains)}
-                valueClassName={totalPnLWithCapitalGains >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
-                subtext={totalCommissions > 0 ? `Incl. ${formatCurrency(totalCommissions)} commissions` : 'Premiums + Stock Gains'}
+                label="Rolls Taken"
+                value={rolledCount}
+                valueClassName={rolledCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}
+                subtext="defensive rolls across all chains"
             />
 
             <KpiCard
-                label="Strike Obligation"
+                label="Best Ticker"
+                value={bestTicker ? bestTicker.ticker : '—'}
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+                subtext={bestTicker ? formatCurrency(bestTicker.pnl) + ' realized' : 'no closed trades yet'}
+            />
+
+            <KpiCard
+                label="Open Obligation"
                 value={formatCurrency(stats.capitalAtRisk)}
                 valueClassName="text-slate-700 dark:text-slate-200"
-                subtext={`${stats.openTradesCount} open trade${stats.openTradesCount !== 1 ? 's' : ''}`}
+                subtext={`${stats.openTradesCount} open trade${stats.openTradesCount !== 1 ? 's' : ''} · strike × qty`}
             />
         </div>
     );

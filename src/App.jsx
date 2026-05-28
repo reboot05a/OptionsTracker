@@ -226,6 +226,7 @@ export default function App() {
                             onPeriodChange={setChartPeriod}
                             totalPnL={stats.totalPnL}
                             darkMode={darkMode}
+                            monthlyStats={stats.monthlyStats}
                         />
                         <TradeTable
                             trades={trades}
@@ -236,21 +237,15 @@ export default function App() {
                             setSortConfig={setSortConfig}
                             currentPage={currentPage}
                             setCurrentPage={setCurrentPage}
-                            tradesPerPage={tradesPerPage}
+                            tradesPerPage={null}
                             onQuickClose={tradeForm.quickCloseTrade}
                             onRoll={tradeForm.rollTrade}
                             onEdit={tradeForm.openModal}
                             onDelete={tradeForm.deleteTrade}
                             onOpenCC={tradeForm.openCoveredCall}
-                            confirmExpireEnabled={appSettings.confirm_expire_enabled !== 'false'}
+                            confirmExpireEnabled={false}
                             livePricesEnabled={appSettings.live_prices_enabled === 'true'}
                         />
-                        <PositionsTable
-                            showToast={showToast}
-                            accountId={selectedAccountId}
-                            onPositionSold={refreshAll}
-                        />
-                        <SummaryCards stats={stats} />
                     </>
                 )}
 
