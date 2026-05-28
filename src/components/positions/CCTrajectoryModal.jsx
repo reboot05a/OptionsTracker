@@ -392,10 +392,9 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
                                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                                             <XAxis
                                                 dataKey="dte"
-                                                reversed
                                                 tick={{ fontSize: 11, fill: '#94a3b8' }}
                                                 tickFormatter={v => `${v}d`}
-                                                label={{ value: '← DTE (days to expiry)', position: 'insideBottomRight', offset: -4, fontSize: 10, fill: '#94a3b8' }}
+                                                label={{ value: 'DTE → expiry', position: 'insideBottomRight', offset: -4, fontSize: 10, fill: '#94a3b8' }}
                                             />
                                             <YAxis
                                                 tickFormatter={v => `$${v.toFixed(2)}`}
