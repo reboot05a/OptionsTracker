@@ -172,8 +172,10 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
             type:           'CC',
             strike:         strike        ?? '',
             expirationDate: expDate       ? String(expDate).slice(0, 10) : '',
-            delta:          candidate.delta   ?? '',
-            iv:             candidate.iv      ?? '',
+            // Round to 2dp — raw DB floats can be 5+ decimal places which
+            // conflict with the field's step="0.01" constraint.
+            delta:          candidate.delta != null ? Number(candidate.delta).toFixed(2) : '',
+            iv:             candidate.iv    != null ? Number(candidate.iv).toFixed(2)    : '',
             entryPrice:     entryPrice !== '' ? String(entryPrice) : '',
             score:          candidate.score   ?? '',
             status:         'Open',

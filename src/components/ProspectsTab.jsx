@@ -239,7 +239,8 @@ export function ProspectsTab({ onEntered, selectedAccountId }) {
                     font-size: 13px;
                     line-height: 1;
                     border-radius: 8px;
-                    overflow: hidden;
+                    overflow-x: auto;
+                    overflow-y: hidden;
                     min-height: 200px;
                 }
 

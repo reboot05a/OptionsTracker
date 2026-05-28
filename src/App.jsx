@@ -183,7 +183,7 @@ export default function App() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4 md:p-8 font-sans text-slate-800 dark:text-slate-200 transition-colors">
+        <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4 md:p-8 font-sans text-slate-800 dark:text-slate-200 transition-colors overflow-x-hidden">
             <div className="max-w-7xl mx-auto space-y-6">
 
                 {/* Error Banner */}
