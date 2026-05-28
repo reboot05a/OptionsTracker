@@ -97,27 +97,28 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setIsModalOpen(true);
     }, []);
 
-    const rollTrade = useCallback((trade) => {
+    const rollTrade = useCallback((trade, rollSuggestion = null) => {
         setEditingId(null);
         setIsRolling(true);
         setRollFromTrade(trade);
         setRollClosePrice('');
         setModalAccountId(null);
+        const rs = rollSuggestion?.open;
         setFormData({
             ticker: trade.ticker,
             openedDate: new Date().toISOString().split('T')[0],
-            expirationDate: '',
+            expirationDate: rs?.expiry ? String(rs.expiry).slice(0, 10) : '',
             closedDate: '',
-            strike: '',
+            strike: rs?.strike ?? '',
             type: trade.type,
             quantity: trade.quantity,
-            delta: '',
+            delta: rs?.delta != null ? Number(rs.delta).toFixed(2) : '',
             iv: '',
-            entryPrice: '',
+            entryPrice: rs?.mid ?? '',
             closePrice: '',
             status: 'Open',
             parentTradeId: trade.id,
-            notes: '',
+            notes: rollSuggestion?.note ?? '',
             commission: '',
         });
         setIsModalOpen(true);

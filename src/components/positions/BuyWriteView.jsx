@@ -980,7 +980,10 @@ export const BuyWriteView = ({
                                                             Expire
                                                         </button>
                                                         <button
-                                                            onClick={() => onRoll && onRoll(pos.cc)}
+                                                            onClick={() => {
+                                                                const rollSugg = rec?.recommendation === 'ROLL_ALERT' ? rec?.contract_detail?.roll_suggestion : null;
+                                                                onRoll && onRoll(pos.cc, rollSugg);
+                                                            }}
                                                             title="Roll to new expiration"
                                                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
                                                         >

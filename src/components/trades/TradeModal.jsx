@@ -105,7 +105,7 @@ export const TradeModal = ({
                                         type="number" step="0.01" required
                                         value={rollClosePrice}
                                         onChange={(e) => setRollClosePrice(e.target.value)}
-                                        className="w-full pl-7 pr-3 py-2 border border-amber-300 rounded-lg focus:ring-amber-500 bg-white"
+                                        className="w-full pl-7 pr-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg focus:ring-amber-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                         placeholder="Cost to buy back original"
                                     />
                                 </div>
