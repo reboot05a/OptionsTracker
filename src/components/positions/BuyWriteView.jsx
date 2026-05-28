@@ -37,6 +37,19 @@ const REC_LABEL = {
     EXIT_LOSS:      'EXIT — LOSS',
 };
 
+const REC_COLOR = {
+    ROLL_ALERT:     'text-emerald-500 dark:text-emerald-400',
+    WATCH_CLOSELY:  'text-yellow-500 dark:text-yellow-400',
+    CONSIDER_CLOSE: 'text-amber-500 dark:text-amber-400',
+    CLOSE_PROFIT:   'text-red-400 dark:text-red-400',
+    CLOSE_URGENT:   'text-red-500 dark:text-red-400',
+    EXIT_PROFIT:    'text-red-400 dark:text-red-400',
+    EXIT_LOSS:      'text-red-500 dark:text-red-400',
+    HOLD:           'text-slate-400 dark:text-slate-500',
+    WAIT:           'text-slate-300 dark:text-slate-400',
+    WRITE:          'text-indigo-400 dark:text-indigo-400',
+};
+
 const recAgeDays = (runDate) => {
     const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00').getTime();
     const runMs   = new Date(runDate + 'T12:00:00').getTime();
@@ -201,7 +214,7 @@ const StatusBadge = ({ status }) => {
 // ============================================================
 // AnalyticsRow — expandable metrics panel (rendered as a <tr>)
 // ============================================================
-const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
+const AnalyticsRow = ({ analytics, recommendation, colSpan, rollExecuted = false }) => {
     const a = analytics;
     const fmt2   = (n) => n != null ? n.toFixed(2) : '—';
     const fmtPct = (n) => n != null ? `${n.toFixed(2)}%` : '—';
@@ -315,7 +328,13 @@ const AnalyticsRow = ({ analytics, recommendation, colSpan }) => {
                         {recommendation.rationale}
                     </p>
                 )}
-                {rollPanel}
+                {rollExecuted ? (
+                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div className="text-xs text-slate-400 dark:text-slate-500 italic">
+                            ✓ Suggested roll executed — recommendation will refresh on next AI Monitor run.
+                        </div>
+                    </div>
+                ) : rollPanel}
             </div>
         );
     })();
@@ -752,6 +771,14 @@ export const BuyWriteView = ({
                                         const rec     = recByTicker[pos.ticker];
                                         const recAge  = rec ? recAgeDays(rec.run_date) : null;
                                         const showRec = rec && recAge <= REC_STALENESS_CUTOFF;
+                                        // Detect if the ROLL_ALERT suggestion was already acted on
+                                        const rollAlreadyDone = (() => {
+                                            if (rec?.recommendation !== 'ROLL_ALERT') return false;
+                                            const rs = rec?.contract_detail?.roll_suggestion?.open;
+                                            if (!rs || !pos.cc) return false;
+                                            return String(pos.cc.strike) === String(rs.strike) &&
+                                                   String(pos.cc.expirationDate).slice(0, 10) === String(rs.expiry).slice(0, 10);
+                                        })();
                                         const hasExpansion = pos.analytics || showRec;
                                         return (
                                     <>
@@ -812,11 +839,11 @@ export const BuyWriteView = ({
                                         {/* Status */}
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge status={pos.status} />
-                                            {showRec && (() => {
+                                            {showRec && !rollAlreadyDone && (() => {
                                                 const label  = REC_LABEL[rec.recommendation] ?? rec.recommendation.replace(/_/g, ' ');
                                                 const cls    = rec.is_stale
                                                     ? 'text-slate-400 dark:text-slate-500'
-                                                    : 'text-orange-400 dark:text-orange-400';
+                                                    : (REC_COLOR[rec.recommendation] ?? 'text-orange-400 dark:text-orange-400');
                                                 return (
                                                     <div className={`text-xs font-semibold mt-0.5 ${cls}`}>
                                                         {label}
@@ -1012,6 +1039,7 @@ export const BuyWriteView = ({
                                             analytics={pos.analytics}
                                             recommendation={showRec ? rec : null}
                                             colSpan={15}
+                                            rollExecuted={rollAlreadyDone}
                                         />
                                     )}
                                     </>
