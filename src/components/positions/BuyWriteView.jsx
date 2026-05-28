@@ -842,9 +842,7 @@ export const BuyWriteView = ({
                                             <StatusBadge status={pos.status} />
                                             {showRec && !rollAlreadyDone && (() => {
                                                 const label = REC_LABEL[rec.recommendation] ?? rec.recommendation.replace(/_/g, ' ');
-                                                const color = rec.is_stale
-                                                    ? '#64748b'
-                                                    : (REC_COLOR[rec.recommendation] ?? '#fb923c');
+                                                const color = REC_COLOR[rec.recommendation] ?? '#fb923c';
                                                 return (
                                                     <div className="text-xs font-semibold mt-0.5" style={{ color }}>
                                                         {label}
