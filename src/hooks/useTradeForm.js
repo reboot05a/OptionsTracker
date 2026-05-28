@@ -97,11 +97,11 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setIsModalOpen(true);
     }, []);
 
-    const rollTrade = useCallback((trade, rollSuggestion = null) => {
+    const rollTrade = useCallback((trade, rollSuggestion = null, liveClosePrice = null) => {
         setEditingId(null);
         setIsRolling(true);
         setRollFromTrade(trade);
-        setRollClosePrice('');
+        setRollClosePrice(liveClosePrice != null ? String(liveClosePrice) : '');
         setModalAccountId(null);
         const rs = rollSuggestion?.open;
         setFormData({
