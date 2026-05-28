@@ -18,6 +18,7 @@ const initialFormState = {
     notes: '',
     commission: '',
     score: '',
+    entryStockPrice: '',
 };
 
 export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, accountId }) => {
@@ -61,6 +62,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
                 notes: trade.notes || '',
                 commission: trade.commission ? trade.commission : '',
                 score: trade.score ?? '',
+                entryStockPrice: trade.entryStockPrice ?? '',
             });
         } else {
             setEditingId(null);
@@ -179,6 +181,9 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
             iv:             candidate.iv    != null ? Number(candidate.iv).toFixed(2)    : '',
             entryPrice:     entryPrice !== '' ? String(entryPrice) : '',
             score:          candidate.score   ?? '',
+            entryStockPrice: candidate.stock_live != null ? String(Number(candidate.stock_live).toFixed(2))
+                           : candidate.stock_snap != null ? String(Number(candidate.stock_snap).toFixed(2))
+                           : '',
             status:         'Open',
         });
         setIsModalOpen(true);
@@ -235,6 +240,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
             notes: formData.notes || null,
             accountId: accountId || modalAccountId || null,
             score: formData.score !== '' && formData.score !== null ? Number(formData.score) : null,
+            entryStockPrice: formData.entryStockPrice !== '' && formData.entryStockPrice !== null ? Number(formData.entryStockPrice) : null,
         };
         // Only send commission if user explicitly set it (non-empty string)
         if (formData.commission !== '' && formData.commission !== null && formData.commission !== undefined) {

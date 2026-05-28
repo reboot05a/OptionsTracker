@@ -72,8 +72,8 @@ router.post('/roll', async (req, res) => {
                 INSERT INTO roa_trades
                     (ticker, type, strike, quantity, delta, iv, "entryPrice", "closePrice",
                      "openedDate", "expirationDate", "closedDate", status, "parentTradeId",
-                     notes, "accountId", commission, score)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                     notes, "accountId", commission, score, "entryStockPrice")
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
                 RETURNING id
             `, [
                 original.ticker,
@@ -93,6 +93,7 @@ router.post('/roll', async (req, res) => {
                 original.accountId,
                 newCommission,
                 (newTrade.score !== undefined && newTrade.score !== null && newTrade.score !== '') ? Number(newTrade.score) : null,
+                (newTrade.entryStockPrice !== undefined && newTrade.entryStockPrice !== null && newTrade.entryStockPrice !== '') ? toCents(newTrade.entryStockPrice) : null,
             ]);
 
             newTradeId = insertResult.rows[0].id;
@@ -178,8 +179,8 @@ router.post('/import', async (req, res) => {
                             INSERT INTO roa_trades
                                 (ticker, type, strike, quantity, delta, iv, "entryPrice", "closePrice",
                                  "openedDate", "expirationDate", "closedDate", status, "parentTradeId",
-                                 notes, "accountId", commission, score)
-                            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                                 notes, "accountId", commission, score, "entryStockPrice")
+                            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
                             RETURNING id
                         `, [
                             trade.ticker?.toUpperCase(),
@@ -199,6 +200,7 @@ router.post('/import', async (req, res) => {
                             tradeAccountId,
                             tradeCommission,
                             (trade.score !== undefined && trade.score !== null && trade.score !== '') ? Number(trade.score) : null,
+                            (trade.entryStockPrice !== undefined && trade.entryStockPrice !== null && trade.entryStockPrice !== '') ? toCents(trade.entryStockPrice) : null,
                         ]);
 
                         const newId = insertResult.rows[0].id;
@@ -384,7 +386,7 @@ router.post('/', async (req, res) => {
             ticker, type, strike, quantity, delta, iv,
             entryPrice, closePrice, openedDate, expirationDate,
             closedDate, status, parentTradeId, notes, accountId,
-            commission, score,
+            commission, score, entryStockPrice,
         } = req.body;
 
         const validationErrors = validateTrade(req.body, false);
@@ -424,8 +426,8 @@ router.post('/', async (req, res) => {
             INSERT INTO roa_trades
                 (ticker, type, strike, quantity, delta, iv, "entryPrice", "closePrice",
                  "openedDate", "expirationDate", "closedDate", status, "parentTradeId",
-                 notes, "accountId", commission, score)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                 notes, "accountId", commission, score, "entryStockPrice")
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
             RETURNING id
         `, [
             tickerUpper,
@@ -445,6 +447,7 @@ router.post('/', async (req, res) => {
             accountId || null,
             commissionCents,
             (score !== undefined && score !== null && score !== '') ? Number(score) : null,
+            (entryStockPrice !== undefined && entryStockPrice !== null && entryStockPrice !== '') ? toCents(entryStockPrice) : null,
         ]);
 
         const newId     = insertResult.rows[0].id;
@@ -479,6 +482,9 @@ router.put('/:id', async (req, res) => {
         const iv             = req.body.iv !== undefined
             ? (req.body.iv !== null && req.body.iv !== '' ? Number(req.body.iv) : null)
             : currentTrade.iv;
+        const entryStockPrice = req.body.entryStockPrice !== undefined
+            ? (req.body.entryStockPrice !== null && req.body.entryStockPrice !== '' ? toCents(Number(req.body.entryStockPrice)) : null)
+            : currentTrade.entryStockPrice;
         const entryPrice     = req.body.entryPrice    ?? toDollars(currentTrade.entryPrice);
         const closePrice     = req.body.closePrice    ?? toDollars(currentTrade.closePrice);
         const openedDate     = req.body.openedDate    ?? currentTrade.openedDate;
@@ -503,8 +509,8 @@ router.put('/:id', async (req, res) => {
             SET ticker = $1, type = $2, strike = $3, quantity = $4, delta = $5, iv = $6,
                 "entryPrice" = $7, "closePrice" = $8, "openedDate" = $9, "expirationDate" = $10,
                 "closedDate" = $11, status = $12, "parentTradeId" = $13, notes = $14,
-                commission = $15, score = $16, "updatedAt" = NOW()
-            WHERE id = $17
+                commission = $15, score = $16, "entryStockPrice" = $17, "updatedAt" = NOW()
+            WHERE id = $18
         `, [
             ticker.toUpperCase(),
             type,
@@ -522,6 +528,7 @@ router.put('/:id', async (req, res) => {
             notes || null,
             commissionCents,
             score,
+            entryStockPrice,
             req.params.id,
         ]);
 

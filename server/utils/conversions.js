@@ -18,7 +18,8 @@ export const tradeToApi = (trade) => {
         strike: toDollars(trade.strike),
         entryPrice: toDollars(trade.entryPrice),
         closePrice: toDollars(trade.closePrice),
-        commission: toDollars(trade.commission)
+        commission: toDollars(trade.commission),
+        entryStockPrice: toDollars(trade.entryStockPrice)
     };
 };
 

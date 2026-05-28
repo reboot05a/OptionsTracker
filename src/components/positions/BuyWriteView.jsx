@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     RefreshCw, CheckCircle2, RotateCw, Edit2,
     PlusCircle, Layers, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft,
-    Ban, FileText, X
+    Ban, FileText, X, TrendingUp
 } from 'lucide-react';
+import { CCTrajectoryModal } from './CCTrajectoryModal';
 import { formatCurrency, formatDateShort } from '../../utils/formatters';
 import { calculateDTE, calculateMetrics } from '../../utils/calculations';
 import { tradesApi, stocksApi, monitorApi } from '../../services/api';
@@ -418,6 +419,7 @@ export const BuyWriteView = ({
     const [expandedTickers, setExpandedTickers] = useState(new Set());
     const [notesPopup,     setNotesPopup]     = useState({ open: false, tradeId: null, ticker: '', notes: '' });
     const [savingNotes,    setSavingNotes]    = useState(false);
+    const [trajectoryPos,  setTrajectoryPos]  = useState(null);  // position to show in trajectory modal
 
     const openNotesPopup = (cc, ticker) => {
         setNotesPopup({ open: true, tradeId: cc.id, ticker, notes: cc.notes || '' });
@@ -904,7 +906,11 @@ export const BuyWriteView = ({
                                                 />
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 text-center bg-indigo-50/30 dark:bg-indigo-900/5">
+                                        <td
+                                            className="px-3 py-3 text-center bg-indigo-50/30 dark:bg-indigo-900/5 cursor-pointer hover:bg-indigo-100/40 dark:hover:bg-indigo-900/20 transition-colors"
+                                            onClick={() => pos.cc && setTrajectoryPos(pos)}
+                                            title="View trajectory chart"
+                                        >
                                             {pos.itmOtm ? (() => {
                                                 const isItm  = pos.itmOtm === 'ITM';
                                                 const isWarn = !isItm && Math.abs(pos.itmOtmPct) < OTM_WARN_PCT;
@@ -926,11 +932,12 @@ export const BuyWriteView = ({
                                                 />
                                             )}
                                         </td>
-                                        {/* Premium: always shows entry price; mid/ask breakdown only appears when
-                                            live option prices are enabled and the option has decayed below entry.
-                                            If the option has risen above entry (loss), just shows the current price in red.
-                                            No live data = entry price only — this is expected for older or uncovered positions. */}
-                                        <td className="px-3 py-3 text-right font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5">
+                                        {/* Premium: click to open trajectory modal. Shows mid/ask when live data available. */}
+                                        <td
+                                            className="px-3 py-3 text-right font-mono text-sm bg-indigo-50/30 dark:bg-indigo-900/5 cursor-pointer hover:bg-indigo-100/40 dark:hover:bg-indigo-900/20 transition-colors"
+                                            onClick={() => pos.cc && setTrajectoryPos(pos)}
+                                            title="View trajectory chart"
+                                        >
                                             {pos.cc ? (
                                                 <div>
                                                     <div className="text-slate-700 dark:text-slate-200">${pos.cc.entryPrice.toFixed(2)}</div>
@@ -1088,6 +1095,14 @@ export const BuyWriteView = ({
                     </div>
                 )}
             </div>
+
+            {/* ── Trajectory Modal ── */}
+            {trajectoryPos && (
+                <CCTrajectoryModal
+                    pos={trajectoryPos}
+                    onClose={() => setTrajectoryPos(null)}
+                />
+            )}
 
             {/* ── Notes Popup ── */}
             {notesPopup.open && (

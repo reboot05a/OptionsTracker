@@ -50,6 +50,11 @@ export const createSchema = async () => {
             )
         `);
 
+        // ── entryStockPrice column (added after initial schema) ──────────────
+        await client.query(`
+            ALTER TABLE roa_trades ADD COLUMN IF NOT EXISTS "entryStockPrice" INTEGER
+        `);
+
         // ── roa_positions ─────────────────────────────────────────────────────
         await client.query(`
             CREATE TABLE IF NOT EXISTS roa_positions (

@@ -325,6 +325,25 @@ export const TradeModal = ({
                                 placeholder="e.g. 0.44"
                             />
                         </div>
+                        <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                                Stock Price at Entry
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-2 text-slate-400">$</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="entryStockPrice"
+                                    value={formData.entryStockPrice}
+                                    onChange={handleInputChange}
+                                    className="w-full pl-7 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                    placeholder="Stock price when you sold the CC"
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Used for trajectory chart — pre-filled from live price when entering from Prospects</p>
+                        </div>
                     </div>
 
                     <div>
