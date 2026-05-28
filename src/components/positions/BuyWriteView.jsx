@@ -775,9 +775,10 @@ export const BuyWriteView = ({
                                         const CC_ONLY_RECS = new Set(['CLOSE_URGENT','CLOSE_PROFIT','CONSIDER_CLOSE','ROLL_ALERT']);
                                         const recIsForWrongStatus =
                                             rec && pos.status === 'UNCOVERED' && CC_ONLY_RECS.has(rec.recommendation);
-                                        // If the rec predates the current CC's open date it belongs to the old cycle
+                                        // If the rec run_date is on or before the current CC's open date it belongs
+                                        // to the old cycle — same-day case: monitor ran on old CC, new CC entered same day
                                         const recIsStaleForCycle = rec && pos.cc &&
-                                            rec.run_date < pos.cc.openedDate;
+                                            rec.run_date <= pos.cc.openedDate;
                                         const showRec = rec && recAge <= REC_STALENESS_CUTOFF
                                             && !recIsForWrongStatus && !recIsStaleForCycle;
                                         // Detect if the ROLL_ALERT suggestion was already acted on
