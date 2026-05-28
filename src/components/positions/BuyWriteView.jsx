@@ -37,17 +37,18 @@ const REC_LABEL = {
     EXIT_LOSS:      'EXIT — LOSS',
 };
 
+// Inline colors — avoids Tailwind JIT purging dynamic class lookups
 const REC_COLOR = {
-    ROLL_ALERT:     'text-emerald-500 dark:text-emerald-400',
-    WATCH_CLOSELY:  'text-yellow-500 dark:text-yellow-400',
-    CONSIDER_CLOSE: 'text-amber-500 dark:text-amber-400',
-    CLOSE_PROFIT:   'text-red-400 dark:text-red-400',
-    CLOSE_URGENT:   'text-red-500 dark:text-red-400',
-    EXIT_PROFIT:    'text-red-400 dark:text-red-400',
-    EXIT_LOSS:      'text-red-500 dark:text-red-400',
-    HOLD:           'text-slate-400 dark:text-slate-500',
-    WAIT:           'text-slate-300 dark:text-slate-400',
-    WRITE:          'text-indigo-400 dark:text-indigo-400',
+    ROLL_ALERT:     '#10b981',  // emerald-500
+    WATCH_CLOSELY:  '#eab308',  // yellow-500
+    CONSIDER_CLOSE: '#f59e0b',  // amber-500
+    CLOSE_PROFIT:   '#f87171',  // red-400
+    CLOSE_URGENT:   '#ef4444',  // red-500
+    EXIT_PROFIT:    '#f87171',  // red-400
+    EXIT_LOSS:      '#ef4444',  // red-500
+    HOLD:           '#94a3b8',  // slate-400
+    WAIT:           '#cbd5e1',  // slate-300
+    WRITE:          '#818cf8',  // indigo-400
 };
 
 const recAgeDays = (runDate) => {
@@ -840,12 +841,12 @@ export const BuyWriteView = ({
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge status={pos.status} />
                                             {showRec && !rollAlreadyDone && (() => {
-                                                const label  = REC_LABEL[rec.recommendation] ?? rec.recommendation.replace(/_/g, ' ');
-                                                const cls    = rec.is_stale
-                                                    ? 'text-slate-400 dark:text-slate-500'
-                                                    : (REC_COLOR[rec.recommendation] ?? 'text-orange-400 dark:text-orange-400');
+                                                const label = REC_LABEL[rec.recommendation] ?? rec.recommendation.replace(/_/g, ' ');
+                                                const color = rec.is_stale
+                                                    ? '#64748b'
+                                                    : (REC_COLOR[rec.recommendation] ?? '#fb923c');
                                                 return (
-                                                    <div className={`text-xs font-semibold mt-0.5 ${cls}`}>
+                                                    <div className="text-xs font-semibold mt-0.5" style={{ color }}>
                                                         {label}
                                                     </div>
                                                 );
