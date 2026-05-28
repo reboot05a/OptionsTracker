@@ -4,7 +4,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceDot, ReferenceLine,
     AreaChart, Area,
-} from 'recharts';
+} from 'recharts'; // Line used in Tab 0 (LineChart)
 
 // ── Black-Scholes ─────────────────────────────────────────────────────────────
 const RISK_FREE_RATE = 0.05;
@@ -426,14 +426,14 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
                                                 dot={false}
                                             />
                                             {currentIV != null && (
-                                                <Line
+                                                <Area
                                                     type="monotone"
                                                     dataKey="Current IV path"
                                                     stroke="#f59e0b"
                                                     strokeWidth={1.5}
                                                     strokeDasharray="5 3"
-                                                    dot={false}
                                                     fill="none"
+                                                    dot={false}
                                                 />
                                             )}
                                             {/* Entry dot */}
