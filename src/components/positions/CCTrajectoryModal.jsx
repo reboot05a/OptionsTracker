@@ -78,18 +78,26 @@ const TrajectoryTooltip = ({ active, payload, label }) => {
 
 const ThetaTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
-    const val = payload.find(p => p.name === 'Theoretical');
-    if (!val) return null;
+    const theoretical = payload.find(p => p.name === 'Theoretical (entry IV)');
+    const currentIVLine = payload.find(p => p.name === 'Current IV path');
+    if (!theoretical) return null;
     return (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg p-3 text-xs">
-            <div className="font-semibold text-slate-700 dark:text-slate-200 mb-1">{label} DTE remaining</div>
-            <div className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                ${Number(val.value).toFixed(3)} theoretical value
+            <div className="font-semibold text-slate-700 dark:text-slate-200 mb-1.5">{label} DTE remaining</div>
+            <div className="flex justify-between gap-4 mb-0.5">
+                <span className="text-blue-400">Entry IV model</span>
+                <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">${Number(theoretical.value).toFixed(3)}</span>
             </div>
-            <div className="text-slate-400 mt-1">
-                {label <= 7 ? 'Rapid decay zone — closing now locks in most remaining value' :
-                 label <= 14 ? 'Decay accelerating — watch for early close at 50%+ capture' :
-                 'Early stage — theta just starting to build momentum'}
+            {currentIVLine && (
+                <div className="flex justify-between gap-4 mb-0.5">
+                    <span className="text-amber-400">Current IV path</span>
+                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">${Number(currentIVLine.value).toFixed(3)}</span>
+                </div>
+            )}
+            <div className="text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-700">
+                {label <= 7 ? 'Low DTE — most value already gone, closing may not be worthwhile' :
+                 label <= 14 ? 'Approaching the steeper part of the decay curve' :
+                 'Significant time value remains'}
             </div>
         </div>
     );
@@ -156,6 +164,21 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
         return { rows, slices };
     }, [K, entryIV, entryDTE, currentDTE, hasIV]);
 
+    // ── Current IV — back-calculated from live mid (shared by Tab 1 & Tab 2) ──
+    const currentIV = useMemo(() => {
+        if (!hasIV || !hasLivePrice || liveOptMid == null || liveOptMid <= 0 || currentDTE == null) return null;
+        const T = Math.max(currentDTE, 0.01) / 365;
+        let lo = 0.01, hi = 5.0;
+        for (let i = 0; i < 60; i++) {
+            const mid = (lo + hi) / 2;
+            const p   = bsCall(currentS, K, T, mid);
+            if (p > liveOptMid) hi = mid;
+            else lo = mid;
+            if (hi - lo < 0.0001) break;
+        }
+        return +((lo + hi) / 2).toFixed(4);
+    }, [K, currentDTE, currentS, liveOptMid, hasIV, hasLivePrice]);
+
     // ── Tab 2: Theta Decay data ───────────────────────────────────────────────
     const thetaData = useMemo(() => {
         if (!hasIV || !hasLivePrice) return null;
@@ -165,30 +188,20 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
             const T   = Math.max(dte, 0.01) / 365;
             const val = +bsCall(S, K, T, entryIV).toFixed(4);
             const th  = +bsTheta(S, K, T, entryIV).toFixed(5);
-            rows.push({ dte, Theoretical: val, dailyTheta: th });
+            const row = { dte, 'Theoretical (entry IV)': val, dailyTheta: th };
+            if (currentIV != null) {
+                row['Current IV path'] = +bsCall(S, K, T, currentIV).toFixed(4);
+            }
+            rows.push(row);
         }
         return rows;
-    }, [K, entryIV, entryDTE, currentDTE, currentS, hasIV, hasLivePrice]);
+    }, [K, entryIV, currentIV, entryDTE, currentDTE, currentS, hasIV, hasLivePrice]);
 
     // ── Tab 3: IV Context data ────────────────────────────────────────────────
     const ivContext = useMemo(() => {
         if (!hasIV || !hasLivePrice || currentDTE == null) return null;
         const T = Math.max(currentDTE, 0.01) / 365;
         const theoreticalAtEntryIV = +bsCall(currentS, K, T, entryIV).toFixed(4);
-
-        // Current IV — back-calculate from live mid using bisection if available
-        let currentIV = null;
-        if (liveOptMid != null && liveOptMid > 0) {
-            let lo = 0.01, hi = 5.0;
-            for (let i = 0; i < 60; i++) {
-                const mid = (lo + hi) / 2;
-                const p   = bsCall(currentS, K, T, mid);
-                if (p > liveOptMid) hi = mid;
-                else lo = mid;
-                if (hi - lo < 0.0001) break;
-            }
-            currentIV = +((lo + hi) / 2).toFixed(4);
-        }
 
         // What-if scenarios
         const ivOverride = whatIfIV ?? entryIV;
@@ -204,7 +217,7 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
         }
 
         return { theoreticalAtEntryIV, currentIV, whatIfVal, ivPoints, ivOverride };
-    }, [K, entryIV, currentDTE, currentS, liveOptMid, hasIV, hasLivePrice, whatIfIV]);
+    }, [K, entryIV, currentIV, currentDTE, currentS, hasIV, hasLivePrice, whatIfIV]);
 
     // ── Metric bar at top ─────────────────────────────────────────────────────
     const capturePct = liveOptMid != null && entryPremium > 0
@@ -367,12 +380,14 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
                                     <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">
                                         <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                                             <div className="w-5 h-0.5 rounded bg-blue-500" />
-                                            Theoretical value at ${currentS?.toFixed(2)}
+                                            Entry IV ({entryIV != null ? `${(entryIV*100).toFixed(0)}%` : '—'}) path
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                            <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500" style={{borderStyle:'dashed'}} />
-                                            Captured premium
-                                        </div>
+                                        {currentIV != null && (
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                <div className="w-5 h-0.5 rounded" style={{background:'#f59e0b',borderTop:'2px dashed #f59e0b'}} />
+                                                Current IV ({(currentIV*100).toFixed(0)}%) path
+                                            </div>
+                                        )}
                                         {liveOptMid != null && (
                                             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -404,12 +419,23 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
                                             <Tooltip content={<ThetaTooltip />} />
                                             <Area
                                                 type="monotone"
-                                                dataKey="Theoretical"
+                                                dataKey="Theoretical (entry IV)"
                                                 stroke={COLORS.today}
                                                 strokeWidth={2}
                                                 fill="url(#captureGrad)"
                                                 dot={false}
                                             />
+                                            {currentIV != null && (
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="Current IV path"
+                                                    stroke="#f59e0b"
+                                                    strokeWidth={1.5}
+                                                    strokeDasharray="5 3"
+                                                    dot={false}
+                                                    fill="none"
+                                                />
+                                            )}
                                             {/* Entry dot */}
                                             {entryDTE != null && (
                                                 <ReferenceDot
@@ -454,7 +480,7 @@ export const CCTrajectoryModal = ({ pos, onClose }) => {
                                     </ResponsiveContainer>
 
                                     <InfoBox>
-                                        The curve shows how the option's theoretical value decays over time at the current stock price. Notice how the curve is <strong style={{fontWeight:500}}>nearly flat in the first half</strong> of the cycle and then drops steeply as expiry approaches — that's theta acceleration. The amber dashed line marks 50% capture: a common early-close target since you remove all assignment risk for half the max profit. The red line at 7 DTE marks the rapid-decay zone where closing becomes less worthwhile since so little value remains.
+                                        The solid blue curve shows the option decaying from entry to zero using your <strong style={{fontWeight:500}}>entry IV as the baseline</strong>. For an out-of-the-money option like this, decay tends to be steeper early in the cycle when there's more time value to shed, then gradually flattens as the option approaches zero near expiry — unlike an ATM option which spikes sharply in the final days. The <strong style={{fontWeight:500}}>dashed amber line</strong> shows the same decay path using today's implied IV: when it sits <em>above</em> the blue line, IV has expanded since entry (option is priced richer — works against you). When it sits <em>below</em>, IV has compressed (a tailwind). The amber horizontal line marks 50% capture; the red line marks 7 DTE.
                                     </InfoBox>
                                 </>
                             )}
