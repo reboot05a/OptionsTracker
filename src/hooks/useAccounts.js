@@ -24,8 +24,7 @@ export const useAccounts = () => {
         try {
             setLoading(true);
             const response = await accountsApi.getAll();
-            const data = response.data;
-            console.log('[useAccounts] accounts from API:', data);
+            const data = response.data.map(a => ({ ...a, id: Number(a.id) }));
             setAccounts(data);
 
             setSelectedAccountIdState(prev => {
