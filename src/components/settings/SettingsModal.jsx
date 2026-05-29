@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, X, Wifi, WifiOff, ShieldCheck, Briefcase, Sun, Moon, Plus, Pencil, Trash2, Check, HelpCircle, List, Download } from 'lucide-react';
+import { Settings, X, Wifi, WifiOff, ShieldCheck, Briefcase, Sun, Moon, Plus, Pencil, Trash2, Check, HelpCircle, List, Download, CalendarDays } from 'lucide-react';
 
 const WELCOME_STORAGE_KEY = 'optionable_welcome_dismissed';
 
@@ -112,6 +112,12 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
             setShowHelpOnStartup(true);
         }
     };
+
+    const [inceptionDateInput, setInceptionDateInput] = useState('');
+
+    useEffect(() => {
+        setInceptionDateInput(settings.inception_date || '');
+    }, [settings.inception_date]);
 
     const livePricesEnabled = settings.live_prices_enabled === 'true';
     const confirmExpireEnabled = settings.confirm_expire_enabled !== 'false'; // Default true
@@ -320,6 +326,29 @@ export const SettingsModal = ({ onClose, showToast, accounts, onCreateAccount, o
                                 }`}
                             />
                         </button>
+                    </div>
+
+                    {/* Inception Date */}
+                    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <CalendarDays className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            <div>
+                                <p className="font-medium text-slate-900 dark:text-white">Inception Date</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Start of performance tracking
+                                </p>
+                            </div>
+                        </div>
+                        <input
+                            type="date"
+                            value={inceptionDateInput}
+                            onChange={(e) => setInceptionDateInput(e.target.value)}
+                            onBlur={() => {
+                                if (inceptionDateInput) updateSetting('inception_date', inceptionDateInput);
+                            }}
+                            onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+                            className="px-2 py-1 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
                     </div>
 
                     {/* Show Help on Startup Toggle */}

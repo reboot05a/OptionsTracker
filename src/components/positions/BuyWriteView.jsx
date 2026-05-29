@@ -410,6 +410,7 @@ export const BuyWriteView = ({
     onExpire,
     onNewTrade,
     trades = [],        // all trades (for scorecard calculations)
+    inceptionDate,      // from appSettings.inception_date
 }) => {
     const [ccTrades,        setCcTrades]        = useState([]);
     const [stocks,          setStocks]          = useState([]);
@@ -686,40 +687,14 @@ export const BuyWriteView = ({
     return (
         <div className="space-y-4">
 
-            {/* ── Performance Scorecard ── */}
+            {/* ── Story Panel (replaces scorecard + summary cards) ── */}
             <PerformanceScorecard
                 trades={trades}
                 positions={positions}
                 deployedCapital={totals.deployed}
+                accountValue={accountValue}
+                inceptionDate={inceptionDate}
             />
-
-            {/* ── Summary Cards ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <CapitalCard
-                    deployed={totals.deployed}
-                    accountValue={accountValue}
-                    activeCount={positions.filter(p => p.status === 'ACTIVE_CC').length}
-                    uncoveredCount={positions.filter(p => p.status === 'UNCOVERED').length}
-                />
-                <SummaryCard
-                    label="Stock P/L"
-                    value={formatCurrency(totals.stockPnl)}
-                    subtext="Unrealized on shares"
-                    color={totals.stockPnl >= 0 ? 'green' : 'red'}
-                />
-                <SummaryCard
-                    label="Premium Captured"
-                    value={formatCurrency(totals.optionsPnl)}
-                    subtext={`of ${formatCurrency(totals.premiumCollected)} collected`}
-                    color={totals.optionsPnl >= 0 ? 'green' : 'red'}
-                />
-                <SummaryCard
-                    label="Total P/L"
-                    value={formatCurrency(totals.totalPnl)}
-                    subtext="Stock + options combined"
-                    color={totals.totalPnl >= 0 ? 'green' : 'red'}
-                />
-            </div>
 
             {/* ── Table ── */}
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">

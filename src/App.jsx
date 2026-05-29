@@ -21,12 +21,9 @@ import {
     WelcomeModal,
     Header,
     TabBar,
-    Dashboard,
     PnLChart,
     TradeTable,
     TradeModal,
-    SummaryCards,
-    PositionsTable,
     SettingsModal,
     PortfolioView
 } from './components';
@@ -216,10 +213,9 @@ export default function App() {
                 {/* Tab Bar — always visible */}
                 <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-                {/* ── Options View ── */}
-                {activeTab === 'options' && (
+                {/* ── Ledger View ── */}
+                {activeTab === 'ledger' && (
                     <>
-                        <Dashboard stats={stats} />
                         <PnLChart
                             chartData={chartData}
                             chartPeriod={chartPeriod}
@@ -261,6 +257,7 @@ export default function App() {
                         onNewTrade={tradeForm.openModal}
                         showToast={showToast}
                         trades={trades}
+                        inceptionDate={appSettings.inception_date}
                     />
                 )}
 
