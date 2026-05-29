@@ -24,18 +24,29 @@ export const useAccounts = () => {
         try {
             setLoading(true);
             const response = await accountsApi.getAll();
-            setAccounts(response.data);
+            const data = response.data;
+            setAccounts(data);
 
-            // If selected account no longer exists, reset to "All"
-            if (selectedAccountId && !response.data.find(a => a.id === selectedAccountId)) {
-                setSelectedAccountId(null);
-            }
+            setSelectedAccountIdState(prev => {
+                // If current selection no longer exists, fall back
+                if (prev && !data.find(a => Number(a.id) === Number(prev))) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    prev = null;
+                }
+                // Auto-select: if nothing selected, pick the only account (or first)
+                if (!prev && data.length > 0) {
+                    const id = data.length === 1 ? data[0].id : data[0].id;
+                    localStorage.setItem(STORAGE_KEY, String(id));
+                    return Number(id);
+                }
+                return prev;
+            });
         } catch (err) {
             console.error('Error fetching accounts:', err);
         } finally {
             setLoading(false);
         }
-    }, [selectedAccountId, setSelectedAccountId]);
+    }, []);
 
     useEffect(() => {
         fetchAccounts();
