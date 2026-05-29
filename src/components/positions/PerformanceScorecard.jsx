@@ -4,9 +4,9 @@ import { formatCurrency } from '../../utils/formatters';
 import { calculateMetrics } from '../../utils/calculations';
 
 // ── Tunable constants ──────────────────────────────────────────
-const TARGET_MONTHLY_PCT = 2.0;   // 2%/month = 24% annualized target
-const YIELD_GREEN_MULT   = 1.0;   // at or above target → green
-const YIELD_YELLOW_MULT  = 0.6;   // 60–99% of target → yellow
+const TARGET_MONTHLY_PCT = 2.0;
+const YIELD_GREEN_MULT   = 1.0;
+const YIELD_YELLOW_MULT  = 0.6;
 
 // ── Helpers ────────────────────────────────────────────────────
 function tradingDaysSince(dateStr) {
@@ -26,15 +26,6 @@ const pnlCls = (v) => v >= 0
     ? 'text-emerald-600 dark:text-emerald-400'
     : 'text-red-500 dark:text-red-400';
 
-// ── Mini metric tile ───────────────────────────────────────────
-const Mini = ({ label, value, sub, valueColor }) => (
-    <div>
-        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">{label}</div>
-        <div className={`text-base font-bold font-mono ${valueColor || 'text-slate-800 dark:text-slate-100'}`}>{value}</div>
-        {sub && <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>}
-    </div>
-);
-
 // ── Main component ─────────────────────────────────────────────
 export const PerformanceScorecard = ({
     trades = [],
@@ -49,7 +40,7 @@ export const PerformanceScorecard = ({
     const annFactor   = tradingDays > 0 ? 252 / tradingDays : 0;
     const targetAnn   = TARGET_MONTHLY_PCT * 12;
 
-    // ── Options track — derived from all CC trades ever ───────
+    // ── Options track ─────────────────────────────────────────
     const { banked, allTimeSold } = useMemo(() => {
         const ccTrades = trades.filter(t => t.type === 'CC');
         const banked = ccTrades
@@ -61,7 +52,6 @@ export const PerformanceScorecard = ({
         return { banked, allTimeSold };
     }, [trades]);
 
-    // ── Open CC totals — derived from positions ───────────────
     const premiumCollected = useMemo(
         () => positions.reduce((s, p) =>
             s + (p.cc ? p.cc.entryPrice * (p.cc.quantity || 1) * 100 : 0), 0),
@@ -71,27 +61,27 @@ export const PerformanceScorecard = ({
         () => positions.reduce((s, p) => s + (p.optionsPnl ?? 0), 0),
         [positions]
     );
-    const stockPnl = useMemo(
-        () => positions.reduce((s, p) => s + (p.stockPnl ?? 0), 0),
-        [positions]
-    );
 
-    // ── Capital split ─────────────────────────────────────────
-    const coveredCount    = positions.filter(p => p.status === 'ACTIVE_CC').length;
-    const uncoveredCount  = positions.filter(p => p.status === 'UNCOVERED').length;
-    const coveredCapital  = positions
-        .filter(p => p.status === 'ACTIVE_CC')
-        .reduce((s, p) => s + (p.deployedCapital || 0), 0);
-    const uncoveredCapital = positions
-        .filter(p => p.status === 'UNCOVERED')
-        .reduce((s, p) => s + (p.deployedCapital || 0), 0);
+    // ── Stock track — split by covered / uncovered ────────────
+    const coveredPositions   = positions.filter(p => p.status === 'ACTIVE_CC');
+    const uncoveredPositions = positions.filter(p => p.status === 'UNCOVERED');
 
-    // ── Combined totals ───────────────────────────────────────
-    const openPosPnl = stockPnl + captured;           // open positions mark-to-market
-    const lockedIn   = banked + captured;             // realized + current mid on open
-    const combined   = banked + stockPnl + captured;  // hypothetical close-all
+    const coveredCapital    = coveredPositions.reduce((s, p)   => s + (p.deployedCapital || 0), 0);
+    const uncoveredCapital  = uncoveredPositions.reduce((s, p) => s + (p.deployedCapital || 0), 0);
+    const coveredStockPnl   = coveredPositions.reduce((s, p)   => s + (p.stockPnl ?? 0), 0);
+    const uncoveredStockPnl = uncoveredPositions.reduce((s, p) => s + (p.stockPnl ?? 0), 0);
+    const stockPnl          = coveredStockPnl + uncoveredStockPnl;
 
-    // ── Yield / ON TRACK gauge ────────────────────────────────
+    const coveredCurrentVal   = coveredCapital  + coveredStockPnl;
+    const uncoveredCurrentVal = uncoveredCapital + uncoveredStockPnl;
+    const totalCurrentVal     = deployedCapital  + stockPnl;
+
+    // ── Combined ──────────────────────────────────────────────
+    const openPosPnl = stockPnl + captured;
+    const lockedIn   = banked   + captured;
+    const combined   = banked   + stockPnl + captured;
+
+    // ── Yield / gauge ─────────────────────────────────────────
     const collectedYieldAnn = deployedCapital > 0
         ? (allTimeSold / deployedCapital) * annFactor * 100 : 0;
     const yieldPct = targetAnn > 0 ? collectedYieldAnn / targetAnn : 0;
@@ -117,71 +107,92 @@ export const PerformanceScorecard = ({
     };
 
     const idleCapital = accountValue > 0 ? accountValue - deployedCapital : null;
-    const pctDeployed = accountValue   > 0 ? (deployedCapital  / accountValue)    * 100 : null;
+    const pctDeployed = accountValue > 0 ? (deployedCapital / accountValue) * 100 : null;
+    const pctCoveredOfAccount   = accountValue > 0 ? (coveredCapital  / accountValue) * 100 : (coveredCapital  / Math.max(deployedCapital, 1) * 100);
+    const pctUncoveredOfAccount = accountValue > 0 ? (uncoveredCapital / accountValue) * 100 : (uncoveredCapital / Math.max(deployedCapital, 1) * 100);
     const capturedPct = premiumCollected > 0 ? (captured / premiumCollected) * 100 : 0;
 
     const inceptionLabel = new Date(INCEPTION + 'T12:00:00')
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    // ── Column header label ───────────────────────────────────
+    const ColHdr = ({ children, align = 'right' }) => (
+        <div className={`text-xs font-semibold text-slate-400 uppercase tracking-wide ${align === 'right' ? 'text-right' : ''}`}>
+            {children}
+        </div>
+    );
+
+    const MonoVal = ({ value, color }) => (
+        <div className={`text-sm font-bold font-mono text-right ${color || 'text-slate-700 dark:text-slate-200'}`}>
+            {value}
+        </div>
+    );
+
     return (
         <div className="space-y-2">
 
-            {/* ── Top row: status gauge + account utilization ── */}
+            {/* ── Top row: strategy status + account ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
                 {/* ON TRACK gauge */}
-                <div className={`rounded-lg border p-3 ${gaugeCfg.bg} ${gaugeCfg.border}`}>
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                <div className={`rounded-lg border p-4 ${gaugeCfg.bg} ${gaugeCfg.border}`}>
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
                         Strategy status · Day {tradingDays} since {inceptionLabel}
                     </div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${gaugeCfg.dot} animate-pulse`} />
-                        <span className={`text-sm font-bold ${gaugeCfg.labelCls}`}>{gaugeCfg.label}</span>
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${gaugeCfg.dot} animate-pulse`} />
+                        <span className={`text-lg font-bold ${gaugeCfg.labelCls}`}>{gaugeCfg.label}</span>
                     </div>
-                    <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden mb-1.5">
                         <div className={`h-full rounded-full ${gaugeCfg.bar} transition-all`}
                              style={{ width: `${Math.min(100, yieldPct * 100).toFixed(0)}%` }} />
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                         {fmtPct(collectedYieldAnn)} ann. yield on deployed · target {fmtPct(targetAnn)}
                     </div>
                 </div>
 
                 {/* Account utilization */}
-                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                        Account{accountValue > 0 ? ` · ${formatCurrency(accountValue)} total` : ''}
-                    </div>
-                    <div className="flex items-baseline gap-3 mb-1.5">
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Account</div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
                         <div>
-                            <span className="text-base font-bold font-mono text-slate-800 dark:text-slate-100">
-                                {formatCurrency(deployedCapital)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 ml-1">in stocks</span>
-                        </div>
-                        {idleCapital != null && (
-                            <div>
-                                <span className="text-sm font-semibold font-mono text-slate-500 dark:text-slate-400">
-                                    {formatCurrency(idleCapital)}
-                                </span>
-                                <span className="text-[10px] text-slate-400 ml-1">idle</span>
+                            <div className="text-xs text-slate-400 mb-0.5">Total</div>
+                            <div className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
+                                {accountValue > 0 ? formatCurrency(accountValue) : '—'}
                             </div>
-                        )}
-                    </div>
-                    {/* Segmented bar: covered (green) | uncovered (amber) | idle (slate bg) */}
-                    <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                        <div className="flex h-full">
-                            <div className="bg-emerald-500 transition-all"
-                                 style={{ width: `${(pctDeployed != null ? coveredCapital / accountValue * 100 : coveredCapital / Math.max(deployedCapital, 1) * 100).toFixed(1)}%` }} />
-                            <div className="bg-amber-400 transition-all"
-                                 style={{ width: `${(pctDeployed != null ? uncoveredCapital / accountValue * 100 : uncoveredCapital / Math.max(deployedCapital, 1) * 100).toFixed(1)}%` }} />
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-400 mb-0.5">In stocks</div>
+                            <div className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
+                                {formatCurrency(deployedCapital)}
+                            </div>
+                            {pctDeployed != null && (
+                                <div className="text-xs text-slate-400">{fmtPct(pctDeployed)} deployed</div>
+                            )}
+                        </div>
+                        <div>
+                            <div className="text-xs text-slate-400 mb-0.5">Idle cash</div>
+                            <div className={`text-base font-bold font-mono ${idleCapital != null && idleCapital >= 0 ? 'text-slate-700 dark:text-slate-200' : 'text-red-500'}`}>
+                                {idleCapital != null ? formatCurrency(idleCapital) : '—'}
+                            </div>
+                            {pctDeployed != null && (
+                                <div className="text-xs text-slate-400">{fmtPct(100 - pctDeployed)} available</div>
+                            )}
                         </div>
                     </div>
-                    <div className="flex gap-3 mt-1 text-[10px] text-slate-400 flex-wrap">
-                        <span><span className="text-emerald-500">■</span> {coveredCount} covered</span>
-                        <span><span className="text-amber-400">■</span> {uncoveredCount} uncovered</span>
+                    {/* Segmented bar */}
+                    <div className="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                        <div className="flex h-full">
+                            <div className="bg-emerald-500 transition-all" style={{ width: `${pctCoveredOfAccount.toFixed(1)}%` }} />
+                            <div className="bg-amber-400 transition-all" style={{ width: `${pctUncoveredOfAccount.toFixed(1)}%` }} />
+                        </div>
+                    </div>
+                    <div className="flex gap-4 mt-1.5 text-xs text-slate-400">
+                        <span><span className="text-emerald-500">■</span> {coveredPositions.length} covered</span>
+                        <span><span className="text-amber-400">■</span> {uncoveredPositions.length} uncovered</span>
                         {pctDeployed != null && (
-                            <span><span className="text-slate-300 dark:text-slate-600">■</span> {fmtPct(100 - pctDeployed)} idle cash</span>
+                            <span><span className="text-slate-300 dark:text-slate-600">■</span> idle</span>
                         )}
                     </div>
                 </div>
@@ -194,30 +205,31 @@ export const PerformanceScorecard = ({
                     {/* OPTIONS TRACK */}
                     <div className="md:pr-4">
                         <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Options</span>
-                            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-semibold">
+                            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Options</span>
+                            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-semibold">
                                 {formatCurrency(allTimeSold)} all-time sold
                             </span>
                         </div>
 
                         {/* Open CCs */}
-                        <div className="mb-2.5">
-                            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Open positions</div>
-                            <div className="flex items-start gap-3">
-                                <Mini
-                                    label="Collected"
-                                    value={formatCurrency(premiumCollected)}
-                                    sub="on open CCs"
-                                />
-                                <span className="text-slate-300 dark:text-slate-600 text-sm mt-3">→</span>
+                        <div className="mb-3">
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Open positions</div>
+                            <div className="flex items-start gap-4">
+                                <div>
+                                    <div className="text-xs text-slate-400 mb-0.5">Collected</div>
+                                    <div className="text-lg font-bold font-mono text-slate-700 dark:text-slate-200">
+                                        {formatCurrency(premiumCollected)}
+                                    </div>
+                                    <div className="text-xs text-slate-400">on open CCs</div>
+                                </div>
+                                <span className="text-slate-300 dark:text-slate-600 text-base mt-4">→</span>
                                 <div className="flex-1">
-                                    <Mini
-                                        label="Captured"
-                                        value={formatCurrency(captured)}
-                                        sub={`mid-mark · ${capturedPct.toFixed(0)}%`}
-                                        valueColor={pnlCls(captured)}
-                                    />
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden mt-1.5">
+                                    <div className="text-xs text-slate-400 mb-0.5">Captured</div>
+                                    <div className={`text-lg font-bold font-mono ${pnlCls(captured)}`}>
+                                        {formatCurrency(captured)}
+                                    </div>
+                                    <div className="text-xs text-slate-400">mid-mark · {capturedPct.toFixed(0)}%</div>
+                                    <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden mt-1.5">
                                         <div className="h-full bg-emerald-500 rounded-full transition-all"
                                              style={{ width: `${Math.min(100, Math.max(0, capturedPct)).toFixed(0)}%` }} />
                                     </div>
@@ -226,108 +238,140 @@ export const PerformanceScorecard = ({
                         </div>
 
                         {/* Banked */}
-                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
-                            <Lock className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2.5">
+                            <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                             <div className="flex-1">
-                                <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                                <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
                                     {formatCurrency(banked)}
                                 </span>
-                                <span className="text-[10px] text-slate-400 ml-2">banked · closed &amp; expired</span>
+                                <span className="text-xs text-slate-400 ml-2">banked · closed &amp; expired</span>
                             </div>
-                            <span className="text-[10px] text-slate-400">locked in</span>
+                            <span className="text-xs text-slate-400">locked in</span>
                         </div>
                     </div>
 
                     {/* STOCK TRACK */}
                     <div className="md:pl-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                Stock · {formatCurrency(deployedCapital)} deployed
-                            </span>
+                        <div className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                            Stock · {formatCurrency(deployedCapital)} deployed
                         </div>
 
-                        {/* Covered / uncovered breakdown */}
-                        <div className="space-y-1.5 mb-2.5">
-                            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5">
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                        {coveredCount} covered position{coveredCount !== 1 ? 's' : ''}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 ml-2">generating CC income</span>
-                                </div>
-                                <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                                    {formatCurrency(coveredCapital)}
-                                </span>
+                        {/* Table: covered / uncovered / totals */}
+                        <div className="mb-3">
+                            {/* Column headers */}
+                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 mb-1.5 items-end">
+                                <div />
+                                <ColHdr>Cost basis</ColHdr>
+                                <ColHdr>Current val</ColHdr>
+                                <ColHdr>Unrealized</ColHdr>
                             </div>
-                            {uncoveredCount > 0 && (
-                                <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-1.5">
-                                    <div className="flex-1 min-w-0">
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                            {uncoveredCount} uncovered
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 ml-2">WAIT · no CC income</span>
+
+                            {/* Covered row */}
+                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5 mb-1.5">
+                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                    {coveredPositions.length} covered
+                                    <span className="text-xs font-normal text-slate-400 ml-1.5">generating CC income</span>
+                                </div>
+                                <MonoVal value={formatCurrency(coveredCapital)} />
+                                <MonoVal value={formatCurrency(coveredCurrentVal)} color={pnlCls(coveredStockPnl)} />
+                                <MonoVal
+                                    value={`${coveredStockPnl >= 0 ? '+' : ''}${formatCurrency(coveredStockPnl)}`}
+                                    color={pnlCls(coveredStockPnl)}
+                                />
+                            </div>
+
+                            {/* Uncovered row */}
+                            {uncoveredPositions.length > 0 && (
+                                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-1.5 mb-1.5">
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        {uncoveredPositions.length} uncovered
+                                        <span className="text-xs font-normal text-slate-400 ml-1.5">WAIT · no CC income</span>
                                     </div>
-                                    <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 flex-shrink-0">
-                                        {formatCurrency(uncoveredCapital)}
-                                    </span>
+                                    <MonoVal value={formatCurrency(uncoveredCapital)} />
+                                    <MonoVal value={formatCurrency(uncoveredCurrentVal)} color={pnlCls(uncoveredStockPnl)} />
+                                    <MonoVal
+                                        value={`${uncoveredStockPnl >= 0 ? '+' : ''}${formatCurrency(uncoveredStockPnl)}`}
+                                        color={pnlCls(uncoveredStockPnl)}
+                                    />
                                 </div>
                             )}
+
+                            {/* Totals row */}
+                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center border-t border-slate-200 dark:border-slate-700 pt-1.5">
+                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</div>
+                                <div className="text-sm font-bold font-mono text-right text-slate-600 dark:text-slate-300">
+                                    {formatCurrency(deployedCapital)}
+                                </div>
+                                <div className="text-sm font-bold font-mono text-right text-slate-600 dark:text-slate-300">
+                                    {formatCurrency(totalCurrentVal)}
+                                </div>
+                                <div className={`text-sm font-bold font-mono text-right ${pnlCls(stockPnl)}`}>
+                                    {stockPnl >= 0 ? '+' : ''}{formatCurrency(stockPnl)}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Unrealized stock P/L */}
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Unrealized:</span>
-                            <span className={`text-sm font-bold font-mono ${pnlCls(stockPnl)}`}>
-                                {stockPnl >= 0 ? '+' : ''}{formatCurrency(stockPnl)}
-                            </span>
-                            <span className="text-[10px] text-slate-400">stock only · not locked in</span>
+                        {/* Realized stock (closed positions) */}
+                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2.5">
+                            <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <div className="flex-1">
+                                <span className="text-base font-bold font-mono text-slate-500 dark:text-slate-400">$0.00</span>
+                                <span className="text-xs text-slate-400 ml-2">realized stock · no closed positions yet</span>
+                            </div>
+                            <span className="text-xs text-slate-400">locked in</span>
                         </div>
                     </div>
                 </div>
 
                 {/* ── Combined totals row ── */}
-                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-start gap-x-6 gap-y-3">
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <div className="grid grid-cols-[auto_1px_1fr_1px_1fr_auto] gap-x-4 items-start">
 
-                    <div>
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Open positions P/L</div>
-                        <div className={`text-xl font-bold font-mono ${pnlCls(openPosPnl)}`}>{formatCurrency(openPosPnl)}</div>
-                        <div className="text-[10px] text-slate-400">
-                            {formatCurrency(stockPnl)} stock + {formatCurrency(captured)} options
-                        </div>
-                    </div>
-
-                    <div className="hidden md:block w-px bg-slate-200 dark:bg-slate-700 self-stretch" />
-
-                    <div>
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Options realized</div>
-                        <div className={`text-xl font-bold font-mono ${pnlCls(lockedIn)}`}>{formatCurrency(lockedIn)}</div>
-                        <div className="text-[10px] text-slate-400">
-                            {formatCurrency(banked)} banked + {formatCurrency(captured)} captured
-                        </div>
-                    </div>
-
-                    <div className="hidden md:block w-px bg-slate-200 dark:bg-slate-700 self-stretch" />
-
-                    <div>
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">If all closed today</div>
-                        <div className={`text-xl font-bold font-mono ${pnlCls(combined)}`}>{formatCurrency(combined)}</div>
-                        <div className="text-[10px] text-slate-400">
-                            {deployedCapital > 0
-                                ? `${((combined / deployedCapital) * 100).toFixed(1)}% on deployed · `
-                                : ''}Day {tradingDays}
-                        </div>
-                    </div>
-
-                    {uncoveredCount > 0 && (
-                        <div className="ml-auto self-center bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-1.5">
-                            <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
-                                {formatCurrency(uncoveredCapital)} idle in stocks
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                                cover {uncoveredCount} position{uncoveredCount > 1 ? 's' : ''} to maximize yield
+                        {/* LEFT — options only */}
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Options realized</div>
+                            <div className={`text-xl font-bold font-mono ${pnlCls(lockedIn)}`}>{formatCurrency(lockedIn)}</div>
+                            <div className="text-xs text-slate-400">
+                                {formatCurrency(banked)} banked + {formatCurrency(captured)} captured
                             </div>
                         </div>
-                    )}
+
+                        <div className="bg-slate-200 dark:bg-slate-700 self-stretch" />
+
+                        {/* CENTER LEFT — open positions combined */}
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Open positions P/L</div>
+                            <div className={`text-xl font-bold font-mono ${pnlCls(openPosPnl)}`}>{formatCurrency(openPosPnl)}</div>
+                            <div className="text-xs text-slate-400">
+                                {formatCurrency(stockPnl)} stock + {formatCurrency(captured)} options
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-200 dark:bg-slate-700 self-stretch" />
+
+                        {/* CENTER RIGHT — close-all scenario */}
+                        <div>
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">If all closed today</div>
+                            <div className={`text-xl font-bold font-mono ${pnlCls(combined)}`}>{formatCurrency(combined)}</div>
+                            <div className="text-xs text-slate-400">
+                                {deployedCapital > 0
+                                    ? `${((combined / deployedCapital) * 100).toFixed(1)}% on deployed · `
+                                    : ''}Day {tradingDays}
+                            </div>
+                        </div>
+
+                        {/* RIGHT — uncovered warning (only if applicable) */}
+                        {uncoveredPositions.length > 0 && (
+                            <div className="self-center bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2">
+                                <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                    {formatCurrency(uncoveredCapital)} idle in stocks
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                    cover {uncoveredPositions.length} position{uncoveredPositions.length > 1 ? 's' : ''} to maximize yield
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
