@@ -260,6 +260,7 @@ export default function App() {
                         onExpire={tradeForm.quickCloseTrade}
                         onNewTrade={tradeForm.openModal}
                         showToast={showToast}
+                        trades={trades}
                     />
                 )}
 

@@ -5,6 +5,7 @@ import {
     Ban, FileText, X, TrendingUp
 } from 'lucide-react';
 import { CCTrajectoryModal } from './CCTrajectoryModal';
+import { PerformanceScorecard } from './PerformanceScorecard';
 import { formatCurrency, formatDateShort } from '../../utils/formatters';
 import { calculateDTE, calculateMetrics } from '../../utils/calculations';
 import { tradesApi, stocksApi, monitorApi } from '../../services/api';
@@ -408,6 +409,7 @@ export const BuyWriteView = ({
     onEdit,
     onExpire,
     onNewTrade,
+    trades = [],        // all trades (for scorecard calculations)
 }) => {
     const [ccTrades,        setCcTrades]        = useState([]);
     const [stocks,          setStocks]          = useState([]);
@@ -683,6 +685,13 @@ export const BuyWriteView = ({
 
     return (
         <div className="space-y-4">
+
+            {/* ── Performance Scorecard ── */}
+            <PerformanceScorecard
+                trades={trades}
+                positions={positions}
+                deployedCapital={totals.deployed}
+            />
 
             {/* ── Summary Cards ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
