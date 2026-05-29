@@ -311,18 +311,15 @@ export const PerformanceScorecard = ({
                                 </div>
                             )}
 
-                            {/* Totals row */}
-                            <div className="flex items-center gap-2 border-t border-slate-200 dark:border-slate-700 pt-2">
+                            {/* Totals row — px-3 matches the padding inside bordered rows above */}
+                            <div className="flex items-center gap-2 border-t border-slate-200 dark:border-slate-700 pt-2 px-3">
                                 <div className="flex-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</div>
-                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 text-slate-600 dark:text-slate-300`}>
-                                    {formatCurrency(deployedCapital)}
-                                </div>
-                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 text-slate-600 dark:text-slate-300`}>
-                                    {formatCurrency(totalCurrentVal)}
-                                </div>
-                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 ${pnlCls(stockPnl)}`}>
-                                    {stockPnl >= 0 ? '+' : ''}{formatCurrency(stockPnl)}
-                                </div>
+                                <MonoVal value={formatCurrency(deployedCapital)} color="text-slate-600 dark:text-slate-300" />
+                                <MonoVal value={formatCurrency(totalCurrentVal)} color="text-slate-600 dark:text-slate-300" />
+                                <MonoVal
+                                    value={`${stockPnl >= 0 ? '+' : ''}${formatCurrency(stockPnl)}`}
+                                    color={pnlCls(stockPnl)}
+                                />
                             </div>
                         </div>
 

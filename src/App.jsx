@@ -321,7 +321,7 @@ export default function App() {
             {/* Settings Modal */}
             {showSettings && (
                 <SettingsModal
-                    onClose={() => { setShowSettings(false); fetchSettings(); }}
+                    onClose={() => { setShowSettings(false); fetchSettings(); fetchAccounts(); }}
                     showToast={showToast}
                     accounts={accounts}
                     onCreateAccount={createAccount}
