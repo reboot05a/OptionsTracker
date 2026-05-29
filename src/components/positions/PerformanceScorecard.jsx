@@ -115,17 +115,13 @@ export const PerformanceScorecard = ({
     const inceptionLabel = new Date(INCEPTION + 'T12:00:00')
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    // ── Column header label ───────────────────────────────────
-    const ColHdr = ({ children, align = 'right' }) => (
-        <div className={`text-xs font-semibold text-slate-400 uppercase tracking-wide ${align === 'right' ? 'text-right' : ''}`}>
-            {children}
-        </div>
+    // ── Stock table helpers ───────────────────────────────────
+    const COL = 'w-28 text-right flex-shrink-0';
+    const ColHdr = ({ children }) => (
+        <div className={`text-xs font-semibold text-slate-400 uppercase tracking-wide ${COL}`}>{children}</div>
     );
-
     const MonoVal = ({ value, color }) => (
-        <div className={`text-sm font-bold font-mono text-right ${color || 'text-slate-700 dark:text-slate-200'}`}>
-            {value}
-        </div>
+        <div className={`text-sm font-bold font-mono ${COL} ${color || 'text-slate-700 dark:text-slate-200'}`}>{value}</div>
     );
 
     return (
@@ -155,29 +151,46 @@ export const PerformanceScorecard = ({
                 {/* Account utilization */}
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                     <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Account</div>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="grid grid-cols-3 gap-4 mb-3">
                         <div>
                             <div className="text-xs text-slate-400 mb-0.5">Total</div>
-                            <div className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
-                                {accountValue > 0 ? formatCurrency(accountValue) : '—'}
-                            </div>
+                            {accountValue > 0 ? (
+                                <>
+                                    <div className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
+                                        {formatCurrency(accountValue)}
+                                    </div>
+                                    <div className="text-xs text-slate-400">account size</div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="text-sm font-semibold text-slate-400 dark:text-slate-500">not set</div>
+                                    <div className="text-xs text-slate-400">set in Settings →</div>
+                                </>
+                            )}
                         </div>
                         <div>
                             <div className="text-xs text-slate-400 mb-0.5">In stocks</div>
                             <div className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
                                 {formatCurrency(deployedCapital)}
                             </div>
-                            {pctDeployed != null && (
-                                <div className="text-xs text-slate-400">{fmtPct(pctDeployed)} deployed</div>
-                            )}
+                            <div className="text-xs text-slate-400">
+                                {pctDeployed != null ? `${fmtPct(pctDeployed)} deployed` : `${coveredPositions.length + uncoveredPositions.length} positions`}
+                            </div>
                         </div>
                         <div>
                             <div className="text-xs text-slate-400 mb-0.5">Idle cash</div>
-                            <div className={`text-base font-bold font-mono ${idleCapital != null && idleCapital >= 0 ? 'text-slate-700 dark:text-slate-200' : 'text-red-500'}`}>
-                                {idleCapital != null ? formatCurrency(idleCapital) : '—'}
-                            </div>
-                            {pctDeployed != null && (
-                                <div className="text-xs text-slate-400">{fmtPct(100 - pctDeployed)} available</div>
+                            {idleCapital != null ? (
+                                <>
+                                    <div className={`text-base font-bold font-mono ${idleCapital >= 0 ? 'text-slate-700 dark:text-slate-200' : 'text-red-500 dark:text-red-400'}`}>
+                                        {formatCurrency(idleCapital)}
+                                    </div>
+                                    <div className="text-xs text-slate-400">{fmtPct(100 - pctDeployed)} available</div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="text-sm font-semibold text-slate-400 dark:text-slate-500">—</div>
+                                    <div className="text-xs text-slate-400">set account value</div>
+                                </>
                             )}
                         </div>
                     </div>
@@ -191,9 +204,7 @@ export const PerformanceScorecard = ({
                     <div className="flex gap-4 mt-1.5 text-xs text-slate-400">
                         <span><span className="text-emerald-500">■</span> {coveredPositions.length} covered</span>
                         <span><span className="text-amber-400">■</span> {uncoveredPositions.length} uncovered</span>
-                        {pctDeployed != null && (
-                            <span><span className="text-slate-300 dark:text-slate-600">■</span> idle</span>
-                        )}
+                        {pctDeployed != null && <span><span className="text-slate-300 dark:text-slate-600">■</span> idle cash</span>}
                     </div>
                 </div>
             </div>
@@ -259,18 +270,20 @@ export const PerformanceScorecard = ({
                         {/* Table: covered / uncovered / totals */}
                         <div className="mb-3">
                             {/* Column headers */}
-                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 mb-1.5 items-end">
-                                <div />
+                            <div className="flex items-end gap-2 mb-2 pr-1">
+                                <div className="flex-1" />
                                 <ColHdr>Cost basis</ColHdr>
                                 <ColHdr>Current val</ColHdr>
                                 <ColHdr>Unrealized</ColHdr>
                             </div>
 
                             {/* Covered row */}
-                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5 mb-1.5">
-                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                    {coveredPositions.length} covered
-                                    <span className="text-xs font-normal text-slate-400 ml-1.5">generating CC income</span>
+                            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-2 mb-2">
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        {coveredPositions.length} covered
+                                    </span>
+                                    <span className="text-xs font-normal text-slate-400 ml-2">generating CC income</span>
                                 </div>
                                 <MonoVal value={formatCurrency(coveredCapital)} />
                                 <MonoVal value={formatCurrency(coveredCurrentVal)} color={pnlCls(coveredStockPnl)} />
@@ -282,10 +295,12 @@ export const PerformanceScorecard = ({
 
                             {/* Uncovered row */}
                             {uncoveredPositions.length > 0 && (
-                                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-1.5 mb-1.5">
-                                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                        {uncoveredPositions.length} uncovered
-                                        <span className="text-xs font-normal text-slate-400 ml-1.5">WAIT · no CC income</span>
+                                <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                            {uncoveredPositions.length} uncovered
+                                        </span>
+                                        <span className="text-xs font-normal text-slate-400 ml-2">WAIT · no CC income</span>
                                     </div>
                                     <MonoVal value={formatCurrency(uncoveredCapital)} />
                                     <MonoVal value={formatCurrency(uncoveredCurrentVal)} color={pnlCls(uncoveredStockPnl)} />
@@ -297,15 +312,15 @@ export const PerformanceScorecard = ({
                             )}
 
                             {/* Totals row */}
-                            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center border-t border-slate-200 dark:border-slate-700 pt-1.5">
-                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</div>
-                                <div className="text-sm font-bold font-mono text-right text-slate-600 dark:text-slate-300">
+                            <div className="flex items-center gap-2 border-t border-slate-200 dark:border-slate-700 pt-2">
+                                <div className="flex-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</div>
+                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 text-slate-600 dark:text-slate-300`}>
                                     {formatCurrency(deployedCapital)}
                                 </div>
-                                <div className="text-sm font-bold font-mono text-right text-slate-600 dark:text-slate-300">
+                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 text-slate-600 dark:text-slate-300`}>
                                     {formatCurrency(totalCurrentVal)}
                                 </div>
-                                <div className={`text-sm font-bold font-mono text-right ${pnlCls(stockPnl)}`}>
+                                <div className={`text-sm font-bold font-mono text-right w-28 flex-shrink-0 ${pnlCls(stockPnl)}`}>
                                     {stockPnl >= 0 ? '+' : ''}{formatCurrency(stockPnl)}
                                 </div>
                             </div>
