@@ -33,6 +33,8 @@ export const PerformanceScorecard = ({
     deployedCapital = 0,
     accountValue = 0,
     inceptionDate,
+    realizedStockGain = 0,
+    closedStockCount = 0,
 }) => {
     const INCEPTION = inceptionDate || '2026-05-18';
 
@@ -78,8 +80,8 @@ export const PerformanceScorecard = ({
 
     // ── Combined ──────────────────────────────────────────────
     const openPosPnl = stockPnl + captured;
-    const lockedIn   = banked   + captured;
-    const combined   = banked   + stockPnl + captured;
+    const lockedIn   = banked   + captured + realizedStockGain;
+    const combined   = banked   + stockPnl + captured + realizedStockGain;
 
     // ── Yield / gauge ─────────────────────────────────────────
     const collectedYieldAnn = deployedCapital > 0
@@ -325,10 +327,14 @@ export const PerformanceScorecard = ({
 
                         {/* Realized stock (closed positions) */}
                         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2.5">
-                            <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <Lock className={`w-3.5 h-3.5 flex-shrink-0 ${closedStockCount > 0 ? 'text-emerald-500' : 'text-slate-400'}`} />
                             <div className="flex-1">
-                                <span className="text-base font-bold font-mono text-slate-500 dark:text-slate-400">$0.00</span>
-                                <span className="text-xs text-slate-400 ml-2">realized stock · no closed positions yet</span>
+                                <span className={`text-base font-bold font-mono ${closedStockCount > 0 ? pnlCls(realizedStockGain) : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {formatCurrency(realizedStockGain)}
+                                </span>
+                                <span className="text-xs text-slate-400 ml-2">
+                                    realized stock · {closedStockCount > 0 ? `${closedStockCount} closed position${closedStockCount !== 1 ? 's' : ''}` : 'no closed positions yet'}
+                                </span>
                             </div>
                             <span className="text-xs text-slate-400">locked in</span>
                         </div>
@@ -339,12 +345,13 @@ export const PerformanceScorecard = ({
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                     <div className="grid grid-cols-[auto_1px_1fr_1px_1fr_auto] gap-x-4 items-start">
 
-                        {/* LEFT — options only */}
+                        {/* LEFT — locked in (options + realized stock) */}
                         <div>
-                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Options realized</div>
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Locked in</div>
                             <div className={`text-xl font-bold font-mono ${pnlCls(lockedIn)}`}>{formatCurrency(lockedIn)}</div>
                             <div className="text-xs text-slate-400">
                                 {formatCurrency(banked)} banked + {formatCurrency(captured)} captured
+                                {realizedStockGain !== 0 && ` + ${formatCurrency(realizedStockGain)} stock`}
                             </div>
                         </div>
 

@@ -412,9 +412,11 @@ export const BuyWriteView = ({
     trades = [],        // all trades (for scorecard calculations)
     inceptionDate,      // from appSettings.inception_date
 }) => {
-    const [ccTrades,        setCcTrades]        = useState([]);
-    const [stocks,          setStocks]          = useState([]);
-    const [recommendations, setRecommendations] = useState([]);
+    const [ccTrades,          setCcTrades]          = useState([]);
+    const [stocks,            setStocks]            = useState([]);
+    const [realizedStockGain, setRealizedStockGain] = useState(0);
+    const [closedStockCount,  setClosedStockCount]  = useState(0);
+    const [recommendations,   setRecommendations]   = useState([]);
     const [prices,          setPrices]          = useState({});
     const [optionPrices,    setOptionPrices]    = useState({});
     const [loading,         setLoading]         = useState(true);
@@ -470,7 +472,13 @@ export const BuyWriteView = ({
                 monitorApi.getRecommendations(recParams).catch(() => ({ success: false })),
             ]);
             if (tradesRes.success) setCcTrades(tradesRes.data.filter(t => t.type === 'CC'));
-            if (stocksRes.success) setStocks(stocksRes.data.filter(s => !s.soldDate));
+            if (stocksRes.success) {
+                const allStocks = stocksRes.data;
+                setStocks(allStocks.filter(s => !s.soldDate));
+                const closedStocks = allStocks.filter(s => !!s.soldDate);
+                setRealizedStockGain(closedStocks.reduce((sum, s) => sum + (s.capitalGainLoss || 0), 0));
+                setClosedStockCount(closedStocks.length);
+            }
             if (recsRes.success)   setRecommendations(recsRes.data);
         } catch (err) {
             console.error('BuyWriteView fetch error:', err);
@@ -694,6 +702,8 @@ export const BuyWriteView = ({
                 deployedCapital={totals.deployed}
                 accountValue={accountValue}
                 inceptionDate={inceptionDate}
+                realizedStockGain={realizedStockGain}
+                closedStockCount={closedStockCount}
             />
 
             {/* ── Table ── */}
