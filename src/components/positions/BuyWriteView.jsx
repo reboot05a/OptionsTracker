@@ -1001,7 +1001,7 @@ export const BuyWriteView = ({
                                             <div className="flex justify-end gap-0.5 flex-nowrap">
                                                 {pos.status === 'UNCOVERED' && (
                                                     <button
-                                                        onClick={() => onNewTrade && onNewTrade()}
+                                                        onClick={() => onNewTrade && onNewTrade(pos.ticker, pos.totalShares, rec)}
                                                         title={`Sell a CC on ${pos.ticker}`}
                                                         className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
                                                     >

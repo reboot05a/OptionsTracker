@@ -126,6 +126,29 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setIsModalOpen(true);
     }, []);
 
+    // Opens the TradeModal pre-filled from an AI Monitor WRITE recommendation.
+    const openFromMonitorRec = useCallback((ticker, totalShares, rec) => {
+        const cd = rec?.contract_detail;
+        const quantity = totalShares ? Math.max(1, Math.floor(totalShares / 100)) : 1;
+        setEditingId(null);
+        setIsRolling(false);
+        setRollFromTrade(null);
+        setModalAccountId(null);
+        setFormData({
+            ...initialFormState,
+            openedDate:     new Date().toISOString().split('T')[0],
+            ticker:         ticker || '',
+            type:           'CC',
+            strike:         cd?.strike        ?? '',
+            expirationDate: cd?.expiry        ? String(cd.expiry).slice(0, 10) : '',
+            delta:          cd?.delta   != null ? Number(cd.delta).toFixed(2)  : '',
+            entryPrice:     cd?.mid     != null ? String(Number(cd.mid).toFixed(2)) : '',
+            quantity,
+            status:         'Open',
+        });
+        setIsModalOpen(true);
+    }, []);
+
     const openCoveredCall = useCallback((cspTrade) => {
         setEditingId(null);
         setIsRolling(false);
@@ -354,6 +377,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         duplicateTrade,
         rollTrade,
         openCoveredCall,
+        openFromMonitorRec,
         openFromProspect,
         saveTrade,
         deleteTrade,
