@@ -254,9 +254,9 @@ export default function App() {
                         onRoll={tradeForm.rollTrade}
                         onEdit={tradeForm.openModal}
                         onExpire={tradeForm.quickCloseTrade}
-                        onNewTrade={(ticker, totalShares, rec) =>
+                        onNewTrade={(ticker, totalShares, rec, stockPrice) =>
                             rec?.contract_detail
-                                ? tradeForm.openFromMonitorRec(ticker, totalShares, rec)
+                                ? tradeForm.openFromMonitorRec(ticker, totalShares, rec, stockPrice)
                                 : tradeForm.openModal()
                         }
                         showToast={showToast}

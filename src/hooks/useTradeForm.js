@@ -127,7 +127,7 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
     }, []);
 
     // Opens the TradeModal pre-filled from an AI Monitor WRITE recommendation.
-    const openFromMonitorRec = useCallback((ticker, totalShares, rec) => {
+    const openFromMonitorRec = useCallback((ticker, totalShares, rec, stockPrice = null) => {
         const cd = rec?.contract_detail;
         const quantity = totalShares ? Math.max(1, Math.floor(totalShares / 100)) : 1;
         setEditingId(null);
@@ -136,15 +136,16 @@ export const useTradeForm = ({ refreshAll, showToast, setError, setCurrentPage, 
         setModalAccountId(null);
         setFormData({
             ...initialFormState,
-            openedDate:     new Date().toISOString().split('T')[0],
-            ticker:         ticker || '',
-            type:           'CC',
-            strike:         cd?.strike        ?? '',
-            expirationDate: cd?.expiry        ? String(cd.expiry).slice(0, 10) : '',
-            delta:          cd?.delta   != null ? Number(cd.delta).toFixed(2)  : '',
-            entryPrice:     cd?.mid     != null ? String(Number(cd.mid).toFixed(2)) : '',
+            openedDate:      new Date().toISOString().split('T')[0],
+            ticker:          ticker || '',
+            type:            'CC',
+            strike:          cd?.strike       ?? '',
+            expirationDate:  cd?.expiry       ? String(cd.expiry).slice(0, 10) : '',
+            delta:           cd?.delta  != null ? Number(cd.delta).toFixed(2)  : '',
+            entryPrice:      cd?.mid    != null ? String(Number(cd.mid).toFixed(2)) : '',
+            entryStockPrice: stockPrice != null ? String(Number(stockPrice).toFixed(2)) : '',
             quantity,
-            status:         'Open',
+            status:          'Open',
         });
         setIsModalOpen(true);
     }, []);
